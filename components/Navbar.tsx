@@ -162,7 +162,8 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
                             <div className="relative">
                                 <button
                                     onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-                                    className={`p-2.5 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 ${isTransparent && !scrolled
+                                    aria-label="Toggle theme"
+                                    className={`p-2.5 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 active-scale ${isTransparent && !scrolled
                                         ? "bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm"
                                         : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
                                         }`}
@@ -215,7 +216,7 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
                                     <>
                                         <Link
                                             href="/jobs/create"
-                                            className={`hidden sm:flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ${isTransparent && !scrolled ? 'bg-white text-primary hover:bg-zinc-50 shadow-white/20 hover:shadow-white/30' : 'bg-gradient-to-r from-primary to-primary/90 text-white hover:from-primary/90 hover:to-primary shadow-primary/20 hover:shadow-primary/30'}`}
+                                            className={`hidden sm:flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-300 hover:scale-105 active-scale shadow-lg hover:shadow-xl ${isTransparent && !scrolled ? 'bg-white text-primary hover:bg-zinc-50 shadow-white/20 hover:shadow-white/30' : 'bg-gradient-to-r from-primary to-primary/90 text-white hover:from-primary/90 hover:to-primary shadow-primary/20 hover:shadow-primary/30'}`}
                                         >
                                             <PlusCircle className="h-4 w-4" />
                                             <span>Post a Job</span>
@@ -225,7 +226,8 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
                                         <div className="hidden sm:block relative">
                                             <button
                                                 onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                                                className={`rounded-full border-2 p-2.5 transition-all duration-300 hover:scale-105 active:scale-95 shadow-md ${isTransparent && !scrolled
+                                                aria-label="User profile menu"
+                                                className={`rounded-full border-2 p-2.5 transition-all duration-300 hover:scale-105 active-scale shadow-md ${isTransparent && !scrolled
                                                     ? 'border-white/30 text-white hover:bg-white/10 hover:border-white/50'
                                                     : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:border-zinc-600'
                                                     }`}
@@ -312,7 +314,8 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
                         {/* Mobile Menu Button */}
                         <button
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className={`md:hidden p-2.5 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 ${isTransparent && !scrolled
+                            aria-label="Toggle mobile menu"
+                            className={`md:hidden p-2.5 rounded-xl transition-all duration-300 hover:scale-105 active-scale ${isTransparent && !scrolled
                                 ? "text-white hover:bg-white/10 backdrop-blur-sm"
                                 : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
                                 }`}

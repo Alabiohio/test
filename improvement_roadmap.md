@@ -21,25 +21,26 @@ This document outlines strategic and technical improvements to elevate **Campwor
 ## 💬 2. Messaging & Communication (Phase 4 Refinement)
 
 ### A. Advanced Chat Features
-- **Typing Indicators**: Show when the other participant is typing using Supabase real-time presence.
-- **Read Receipts**: Visual indicators (single vs. double checks) to confirm when a message has been seen.
-- **Media Sharing**: Allow students to send images (via Cloudinary) directly in the chat to share item conditions or project proofs.
+- [x] **Typing Indicators**: Show when the other participant is typing using Supabase real-time presence.
+- [x] **Read Receipts**: Visual indicators (single vs. double checks) to confirm when a message has been seen.
+- [x] **Media Sharing**: Allow students to send images (via Cloudinary) directly in the chat to share item conditions or project proofs.
 
 ### B. Notifications
-- **In-App Alerts**: Live toast notifications using `sonner` or `react-hot-toast` when a new message arrives while the user is on another page.
-- **Email Notifications**: Trigger emails via Supabase Edge Functions when a user receives a message while offline.
+- [x] **In-App Alerts**: Live toast notifications using `sonner` or `react-hot-toast` when a new message arrives while the user is on another page.
+- **Email Notifications**: Trigger emails via Supabase Edge Functions when a user receives a proposal.
 
 ---
 
 ## 🛍 3. Marketplace & Product Features
 
 ### A. Discovery & Search
-- **Fuzzy Search**: Implement full-text search in Supabase to handle typos or partial matches in job/product titles.
-- **Advanced Filters**: Add price range sliders, location-based sorting, and "Recently Viewed" history.
+- [x] **Fuzzy Search**: Implemented multi-column search with support for SQL Full-Text Search integration.
+- [x] **Advanced Filters**: Added price range, location filtering, and and expandable UI for better discovery.
+- [x] **Recently Viewed**: Added a persistent history of recently visited items using localStorage.
 
 ### B. Trust & Safety
-- **Verified University Emails**: Enforce `.edu` or specific university email domains during signup to ensure a closed community.
-- **Report System**: Add a "Flag" button on jobs/products to allow the community to moderate suspicious listings.
+- [x] **Verified University Emails**: Enforced `.edu` email domain requirement for Students during signup.
+- [x] **Report System**: Added a "Flag" button on jobs/products allowing authenticated users to report suspicious content.
 - **Escrow Logic (Phase 5 Prep)**: Design the DB schema to hold funds in a "pending" state until a student marks a job as "Accepted & Complete."
 
 ---
@@ -47,18 +48,18 @@ This document outlines strategic and technical improvements to elevate **Campwor
 ## 🎨 4. Design & UX Refinements
 
 ### A. Micro-interactions
-- **Skeleton Loaders**: Replace generic "Loading..." text with animated skeleton cards that match the layout of Jobs/Products.
-- **Haptic Feedback**: Add subtle CSS/JS transitions for mobile users when interacting with cards.
+- [x] **Skeleton Loaders**: Implemented custom skeletons for Job and Product cards.
+- [x] **Haptic Feedback**: Added `.active-scale` transitions for mobile interactions.
 
 ### B. SEO & Accessibility
-- **Dynamic Metadata**: Generate unique page titles and descriptions for every Job and Product for better social sharing (OG tags).
-- **Aria Labels**: Ensure all interactive elements (Filter menus, Send buttons) are fully accessible to screen readers.
+- [x] **Dynamic Metadata**: Added nested layouts with `generateMetadata` for dynamic OG tags on Jobs/Products.
+- [x] **Aria Labels**: Added accessibility labels to core navigation components.
 
 ---
 
 ## 📈 5. Monitoring & Analytics
-- **Vercel Analytics**: Track page views and user drop-off points in the registration/posting flows.
-- **Error Tracking**: Integrate **Sentry** to capture and debug client-side crashes in real-time.
+- [x] **Vercel Analytics**: Tracked page views and user drop-off points in the registration/posting flows.
+- [x] **Error Tracking**: Integrated **Sentry** to capture and debug client-side crashes in real-time.
 
 ---
 

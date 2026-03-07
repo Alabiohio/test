@@ -84,11 +84,15 @@ Deliverable:
 ### Phase 4 – Messaging (Week 3)
 **Goal:** Students communicate inside Campwork
 
-- One-to-one messaging (job-based)
-- Supabase real-time subscriptions
+- [x] One-to-one messaging (job-based)
+- [x] Supabase real-time subscriptions
+- [x] Read receipts
+- [x] Typing indicators
+- [x] Media/image sharing in chat
+- [x] Toast notifications for new messages
 
 Deliverable:
-- Real-time chat per job
+- [x] Real-time chat per job
 
 ---
 
@@ -118,14 +122,14 @@ Deliverable:
 ### Phase 7 – Polish & Launch Prep (Week 5)
 **Goal:** Ready for real users
 
-- Error handling
-- Empty states
-- Mobile responsiveness
-- Basic SEO (web)
-- App icon & splash screen
+- [x] Error handling (Sentry – client, server, edge)
+- [ ] Empty states
+- [x] Mobile responsiveness
+- [x] Basic SEO (sitemap, robots.ts, OG/Twitter tags per page)
+- [ ] App icon & splash screen (Expo)
 
 Deliverable:
-- MVP ready for beta users
+- [ ] MVP ready for beta users
 
 ---
 
@@ -169,9 +173,12 @@ Keep it simple.
 
 ## 7. Next Immediate Tasks
 
-1. Build Job Feed (Phase 3)
-2. Build Create Job Form (Phase 3)
-3. Set up Auth UI (Phase 2)
+1. Paystack integration – escrow-style payment flow (Phase 5)
+2. Reviews & ratings system – rate freelancer after job completion (Phase 6)
+3. Display ratings on profile page (Phase 6)
+4. Empty states across all listing pages (Phase 7)
+5. Expo app icon & splash screen (Phase 7)
+6. GitHub repo setup (Phase 1)
 
 ---
 

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Navbar } from "@/components/Navbar";
+import { toast } from "sonner";
 
 function LoginForm() {
     const router = useRouter();
@@ -34,10 +35,12 @@ function LoginForm() {
 
             if (loginError) throw loginError;
 
+            toast.success("Welcome back!");
             router.push("/jobs");
             router.refresh();
         } catch (err: any) {
             console.error("Login error:", err);
+            toast.error(err.message || "Invalid credentials");
             setError(err.message);
         } finally {
             setLoading(false);

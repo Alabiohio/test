@@ -28,6 +28,8 @@ import { Footer } from "@/components/Footer";
 import Link from "next/link";
 import { uploadToCloudinary, getOptimizedImageUrl } from "@/lib/cloudinary";
 
+import { toast } from "sonner";
+
 function MessagesContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -581,7 +583,7 @@ function MessagesContent() {
             if (err.details) console.error("Error details:", err.details);
             if (err.hint) console.error("Error hint:", err.hint);
 
-            alert(err.message || "Failed to send message. Please try again.");
+            toast.error(err.message || "Failed to send message. Please try again.");
         } finally {
             setSending(false);
             setUploadingImage(false);
@@ -603,7 +605,7 @@ function MessagesContent() {
             setSelectedConversation(null);
         } catch (err) {
             console.error("Error deleting conversation:", err);
-            alert("Failed to delete conversation.");
+            toast.error("Failed to delete conversation.");
         }
     };
 

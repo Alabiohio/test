@@ -17,6 +17,36 @@
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --font-acme: var(--font-acme);
+  --font-nova: var(--font-nova-slim);
+}
+
+@layer utilities {
+  .mesh-gradient {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(at 0% 0%, rgba(163, 19, 58, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(163, 19, 58, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(163, 19, 58, 0.05) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(163, 19, 58, 0.1) 0px, transparent 50%);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .dark .glass-card {
+    background: rgba(9, 9, 11, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .premium-shadow {
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.1);
+  }
 }
 
 body {
@@ -24,4 +54,19 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Mobile Feedback Micro-interactions */
+.active-scale:active {
+  transform: scale(0.96);
+  transition: transform 0.1s ease;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

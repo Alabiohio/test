@@ -12,7 +12,8 @@ import {
     ShoppingBag,
     ShieldCheck,
     Info,
-    CheckCircle2
+    CheckCircle2,
+    Flag
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Loading } from "@/components/Loading";
@@ -21,6 +22,7 @@ import type { Product } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Footer } from "@/components/Footer";
+import { toast } from "sonner";
 
 export default function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -28,6 +30,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     const [product, setProduct] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
+    const [isReporting, setIsReporting] = useState(false);
 
     useEffect(() => {
         async function fetchProduct() {
@@ -64,10 +67,41 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                 .eq('id', id);
 
             if (error) throw error;
+            toast.success("Item marked as sold");
             setProduct({ ...product, status: 'sold' });
         } catch (error) {
             console.error("Error updating status:", error);
-            alert("Failed to update status");
+            toast.error("Failed to update status");
+        }
+    };
+
+    const handleReport = async () => {
+        if (!user) {
+            router.push('/auth/login');
+            return;
+        }
+
+        const reason = window.prompt("Why are you reporting this item? (e.g., fraudulent, prohibited, spam)");
+        if (!reason) return;
+
+        try {
+            setIsReporting(true);
+            const { error: reportError } = await supabase
+                .from('reports')
+                .insert([{
+                    reporter_id: user.id,
+                    item_id: id,
+                    item_type: 'product',
+                    reason: reason
+                }]);
+
+            if (reportError) throw reportError;
+            toast.success("Thank you. Our team will review this listing.");
+        } catch (err: any) {
+            console.error("Error reporting product:", err);
+            toast.error("Failed to submit report.");
+        } finally {
+            setIsReporting(false);
         }
     };
 
@@ -109,8 +143,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                             />
                             <div className="absolute top-6 right-6 flex flex-col gap-3">
                                 <span className={`rounded-full px-4 py-1.5 text-sm font-bold uppercase tracking-widest backdrop-blur-md shadow-lg ${product.status === 'active'
-                                        ? 'bg-green-500/80 text-white'
-                                        : 'bg-zinc-500/80 text-white'
+                                    ? 'bg-green-500/80 text-white'
+                                    : 'bg-zinc-500/80 text-white'
                                     }`}>
                                     {product.status}
                                 </span>
@@ -200,8 +234,13 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
                                             <CheckCircle2 className="h-5 w-5" />
                                             {product.status === 'sold' ? 'Already Sold' : 'Mark as Sold'}
                                         </button>
-                                        <button className="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-400 transition-all hover:text-red-500 dark:border-zinc-800 dark:bg-zinc-950">
-                                            <Info className="h-6 w-6" />
+                                        <button
+                                            onClick={handleReport}
+                                            disabled={isReporting}
+                                            title="Report listing"
+                                            className="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-400 transition-all hover:bg-red-50 hover:text-red-500 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-red-900/20"
+                                        >
+                                            <Flag className={`h-6 w-6 ${isReporting ? 'animate-pulse' : ''}`} />
                                         </button>
                                     </div>
                                 ) : (

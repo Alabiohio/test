@@ -13,6 +13,7 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -93,6 +94,7 @@ export default function Home() {
                 >
                   Post a Gig
                 </Link>
+
               </div>
             </motion.div>
           </div>

@@ -21,6 +21,8 @@ export type Profile = {
     university?: string;
     role: 'student' | 'client' | 'admin';
     created_at: string;
+    skills?: string[];
+    social_links?: Record<string, string>;
 };
 
 export type Proposal = {

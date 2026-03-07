@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Filter, SlidersHorizontal, X } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { JobCard } from "@/components/JobCard";
+import { JobCardSkeleton } from "@/components/skeletons/JobCardSkeleton";
 import { Loading } from "@/components/Loading";
 import { supabase } from "@/lib/supabase";
 import type { Job } from "@/types";
@@ -24,6 +25,26 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
+
+    // Advanced Filter states
+    const [minPrice, setMinPrice] = useState("");
+    const [maxPrice, setMaxPrice] = useState("");
+    const [location, setLocation] = useState("");
+    const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
+
+    useEffect(() => {
+        const storedIds = localStorage.getItem('recently_viewed_jobs');
+        if (storedIds) {
+            setRecentlyViewedIds(JSON.parse(storedIds));
+        }
+    }, []);
+
+    const addToRecentlyViewed = (jobId: string) => {
+        const updatedIds = [jobId, ...recentlyViewedIds.filter(id => id !== jobId)].slice(0, 5);
+        setRecentlyViewedIds(updatedIds);
+        localStorage.setItem('recently_viewed_jobs', JSON.stringify(updatedIds));
+    };
 
     async function fetchJobs() {
         try {
@@ -38,7 +59,18 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
             }
 
             if (searchQuery) {
-                query = query.ilike('title', `%${searchQuery}%`);
+                // Use the new fts column if available, fallback to ilike for reliability
+                query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%`);
+            }
+
+            if (minPrice) {
+                query = query.gte('budget', parseInt(minPrice));
+            }
+            if (maxPrice) {
+                query = query.lte('budget', parseInt(maxPrice));
+            }
+            if (location) {
+                query = query.ilike('location', `%${location}%`);
             }
 
             const { data, error } = await query;
@@ -117,6 +149,7 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
                                 <div className="relative">
                                     <button
                                         onClick={() => setShowCategoryMenu(!showCategoryMenu)}
+                                        aria-label="Filter by category"
                                         className={`flex items-center gap-2 rounded-full border px-4 py-3 text-sm font-medium transition-colors ${selectedCategory !== "All"
                                             ? "border-primary bg-primary/10 text-primary"
                                             : "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
@@ -157,17 +190,111 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
                                         )}
                                     </AnimatePresence>
                                 </div>
-                                <button className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                                <button
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className={`flex items-center gap-2 rounded-full border px-4 py-3 text-sm font-medium transition-colors ${showFilters
+                                        ? "border-primary bg-primary/10 text-primary"
+                                        : "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
+                                        }`}
+                                >
                                     <SlidersHorizontal className="h-4 w-4" />
                                     More Filters
                                 </button>
                             </div>
                         </div>
+
+                        {/* Expandable Advanced Filters */}
+                        <AnimatePresence>
+                            {showFilters && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 pb-2">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Price Range ($)</label>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="number"
+                                                    placeholder="Min"
+                                                    value={minPrice}
+                                                    onChange={(e) => setMinPrice(e.target.value)}
+                                                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-primary dark:border-zinc-800 dark:bg-zinc-900"
+                                                />
+                                                <span className="text-zinc-400">-</span>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Max"
+                                                    value={maxPrice}
+                                                    onChange={(e) => setMaxPrice(e.target.value)}
+                                                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-primary dark:border-zinc-800 dark:bg-zinc-900"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Location</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Main Campus, Remote..."
+                                                value={location}
+                                                onChange={(e) => setLocation(e.target.value)}
+                                                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm outline-none focus:border-primary dark:border-zinc-800 dark:bg-zinc-900"
+                                            />
+                                        </div>
+                                        <div className="flex items-end gap-3">
+                                            <button
+                                                onClick={() => fetchJobs()}
+                                                className="flex-1 rounded-xl bg-zinc-900 py-2.5 text-sm font-bold text-white transition-all hover:bg-black dark:bg-white dark:text-black dark:hover:bg-zinc-100"
+                                            >
+                                                Apply Filters
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setMinPrice("");
+                                                    setMaxPrice("");
+                                                    setLocation("");
+                                                    fetchJobs();
+                                                }}
+                                                className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-bold hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                                            >
+                                                Reset
+                                            </button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
+
+                    {/* Recently Viewed (Optional Sidebar or Top Bar - let's add it before listing) */}
+                    {recentlyViewedIds.length > 0 && (
+                        <div className="flex flex-col gap-4">
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Recently Viewed</h3>
+                            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                                {jobs.filter(j => recentlyViewedIds.includes(j.id)).map(job => (
+                                    <Link
+                                        key={`rv-${job.id}`}
+                                        href={`/jobs/${job.id}`}
+                                        className="shrink-0 w-64 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm hover:border-primary transition-all dark:border-zinc-800 dark:bg-zinc-950"
+                                    >
+                                        <span className="text-[10px] font-bold text-primary uppercase">{job.category}</span>
+                                        <h4 className="font-bold text-sm line-clamp-1">{job.title}</h4>
+                                        <span className="text-xs font-black text-zinc-500">${job.budget}</span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Jobs Listing */}
                     {loading && jobs.length === 0 ? (
-                        <Loading text={null} />
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+                            {[...Array(6)].map((_, i) => (
+                                <JobCardSkeleton key={i} />
+                            ))}
+                        </div>
                     ) : error ? (
                         <div className="rounded-3xl border border-red-100 bg-red-50 p-8 text-center dark:border-red-900/30 dark:bg-red-950/20">
                             <p className="text-red-600 dark:text-red-400 font-medium">Failed to load jobs: {error}</p>
@@ -197,7 +324,7 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
                                 >
-                                    <Link href={`/jobs/${job.id}`}>
+                                    <Link href={`/jobs/${job.id}`} onClick={() => addToRecentlyViewed(job.id)}>
                                         <JobCard job={job} />
                                     </Link>
                                 </motion.div>

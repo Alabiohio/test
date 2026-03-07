@@ -2,13 +2,14 @@
 
 import { use, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Briefcase, Calendar, Clock, DollarSign, MapPin, Share2, ShieldCheck, User, Loader2, X, Send, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Briefcase, Calendar, Clock, DollarSign, MapPin, Share2, ShieldCheck, User, Loader2, X, Send, CheckCircle2, AlertCircle, Trash2, Flag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Loading } from "@/components/Loading";
 import { supabase } from "@/lib/supabase";
 import type { Job, Profile, Proposal } from "@/types";
 import { Footer } from "@/components/Footer";
+import { toast } from "sonner";
 
 type JobWithClient = Job & {
     profiles: Profile;
@@ -32,6 +33,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         estimatedDays: "3"
     });
     const [success, setSuccess] = useState(false);
+    const [isReporting, setIsReporting] = useState(false);
 
     useEffect(() => {
         async function fetchData() {
@@ -121,6 +123,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
             if (submitError) throw submitError;
 
+            toast.success("Proposal submitted successfully!");
             setSuccess(true);
             setHasApplied(true);
             setTimeout(() => {
@@ -129,6 +132,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             }, 3000);
         } catch (err: any) {
             console.error("Error submitting proposal:", err);
+            toast.error(err.message || "Failed to submit proposal");
             setError(err.message);
         } finally {
             setSubmitting(false);
@@ -147,13 +151,44 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
             if (deleteError) throw deleteError;
 
+            toast.success("Gig deleted successfully");
             router.push('/profile');
             router.refresh();
         } catch (err: any) {
             console.error("Error deleting job:", err);
-            alert(err.message || "Failed to delete the gig.");
+            toast.error(err.message || "Failed to delete the gig.");
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleReport = async () => {
+        if (!currentUser) {
+            router.push('/auth/login');
+            return;
+        }
+
+        const reason = window.prompt("Why are you reporting this gig? (e.g., suspicious, spam, inappropriate)");
+        if (!reason) return;
+
+        try {
+            setIsReporting(true);
+            const { error: reportError } = await supabase
+                .from('reports')
+                .insert([{
+                    reporter_id: currentUser.id,
+                    item_id: id,
+                    item_type: 'job',
+                    reason: reason
+                }]);
+
+            if (reportError) throw reportError;
+            toast.success("Thank you. Our team will review this listing shortly.");
+        } catch (err: any) {
+            console.error("Error reporting job:", err);
+            toast.error("Failed to submit report. Please try again.");
+        } finally {
+            setIsReporting(false);
         }
     };
 
@@ -234,8 +269,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                         <button className="rounded-full border border-zinc-200 p-2.5 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900">
                                             <Share2 className="h-5 w-5" />
                                         </button>
-                                        <button className="rounded-full border border-zinc-200 p-2.5 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900">
-                                            <ShieldCheck className="h-5 w-5" />
+                                        <button
+                                            onClick={handleReport}
+                                            disabled={isReporting}
+                                            title="Report this listing"
+                                            className="rounded-full border border-zinc-200 p-2.5 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:border-zinc-800 dark:hover:bg-red-900/20 transition-all"
+                                        >
+                                            <Flag className={`h-5 w-5 ${isReporting ? 'animate-pulse' : ''}`} />
                                         </button>
                                     </div>
                                 </div>

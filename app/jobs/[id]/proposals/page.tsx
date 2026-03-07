@@ -21,6 +21,7 @@ import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/lib/supabase";
 import type { Job, Profile, Proposal } from "@/types";
 import Link from "next/link";
+import { toast } from "sonner";
 
 type ProposalWithFreelancer = Proposal & {
     profiles: Profile;
@@ -109,6 +110,8 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
 
             if (jError) throw jError;
 
+            toast.success("Student hired successfully!");
+
             // 3. Reject other proposals (optional but good for MVP clarity)
             const { error: rError } = await supabase
                 .from('proposals')
@@ -119,12 +122,14 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
             if (rError) console.error("Error rejecting other proposals:", rError);
 
             // Refresh data
-            router.refresh();
-            window.location.reload();
+            setTimeout(() => {
+                router.refresh();
+                window.location.reload();
+            }, 1000);
 
         } catch (err: any) {
             console.error("Error accepting proposal:", err);
-            alert("Failed to accept proposal: " + err.message);
+            toast.error("Failed to accept proposal: " + err.message);
         } finally {
             setActionLoading(null);
         }

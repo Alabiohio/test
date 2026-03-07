@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 
 import { jobSchema } from "@/lib/validations";
 import { ZodError } from "zod";
+import { SkillInput } from "@/components/SkillInput";
 
 export default function CreateJobPage() {
     const router = useRouter();
@@ -22,7 +23,7 @@ export default function CreateJobPage() {
         budget: "",
         category: "Development",
         description: "",
-        skills: ""
+        skills: [] as string[]
     });
 
     useEffect(() => {
@@ -59,13 +60,11 @@ export default function CreateJobPage() {
         }
 
         try {
-            const skillArray = form.skills.split(",").map(s => s.trim()).filter(s => s !== "");
-
             // Zod Validation
             const validationResult = jobSchema.safeParse({
                 ...form,
-                budget: parseFloat(form.budget),
-                skills_required: skillArray
+                budget: parseFloat(form.budget || "0"),
+                skills_required: form.skills
             });
 
             if (!validationResult.success) {
@@ -216,13 +215,13 @@ export default function CreateJobPage() {
                             {formErrors.description && <p className="text-xs font-medium text-red-500">{formErrors.description}</p>}
                         </div>
 
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Required Skills (Comma separated)</label>
-                            <input
-                                value={form.skills}
-                                onChange={(e) => setForm({ ...form, skills: e.target.value })}
-                                placeholder="React, Design, Python..."
-                                className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                        <div className="flex flex-col gap-3">
+                            <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Required Skills</label>
+                            <SkillInput
+                                selectedSkills={form.skills}
+                                onAddSkill={(skill) => setForm(prev => ({ ...prev, skills: [...prev.skills, skill] }))}
+                                onRemoveSkill={(skill) => setForm(prev => ({ ...prev, skills: prev.skills.filter(s => s !== skill) }))}
+                                placeholder="What skills should the student have? (e.g. Photoshop, Typing)"
                             />
                         </div>
 

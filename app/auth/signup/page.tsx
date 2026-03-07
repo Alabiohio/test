@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Navbar } from "@/components/Navbar";
+import { toast } from "sonner";
 
 export default function SignupPage() {
     const router = useRouter();
@@ -25,6 +26,19 @@ export default function SignupPage() {
         setLoading(true);
         setError(null);
 
+        // University Email Validation - Only compulsory for Students
+        if (form.role === "student") {
+            const universityDomains = [".edu"];
+            const isUniversityEmail = universityDomains.some(domain => form.email.toLowerCase().endsWith(domain));
+
+            if (!isUniversityEmail) {
+                setError("Students must use their university email address (.edu) to join the community.");
+                toast.error("University Email Required");
+                setLoading(false);
+                return;
+            }
+        }
+
         try {
             const { data, error: signupError } = await supabase.auth.signUp({
                 email: form.email,
@@ -41,10 +55,12 @@ export default function SignupPage() {
             if (signupError) throw signupError;
 
             if (data?.user) {
+                toast.success("Account created! Please check your email.");
                 router.push("/auth/login?message=Check your email to confirm your account.");
             }
         } catch (err: any) {
             console.error("Signup error:", err);
+            toast.error(err.message || "Something went wrong during signup");
             setError(err.message);
         } finally {
             setLoading(false);
@@ -114,7 +130,9 @@ export default function SignupPage() {
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-semibold">Student Email</label>
+                                <label className="text-sm font-semibold">
+                                    {form.role === "student" ? "Student Email" : "Email Address"}
+                                </label>
                                 <div className="relative">
                                     <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                                     <input
@@ -122,10 +140,15 @@ export default function SignupPage() {
                                         type="email"
                                         value={form.email}
                                         onChange={(e) => setForm({ ...form, email: e.target.value })}
-                                        placeholder="email@university.edu"
+                                        placeholder={form.role === "student" ? "email@university.edu" : "email@example.com"}
                                         className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10 dark:border-zinc-800 dark:bg-zinc-900"
                                     />
                                 </div>
+                                {form.role === "student" && (
+                                    <p className="text-[10px] font-medium text-zinc-400 italic">
+                                        * Must be a valid .edu address
+                                    </p>
+                                )}
                             </div>
 
                             <div className="flex flex-col gap-1.5">
