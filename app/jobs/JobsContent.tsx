@@ -12,7 +12,20 @@ import type { Job } from "@/types";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 
-const CATEGORIES = ["All", "Development", "Design", "Marketing", "Education", "Events"];
+const CATEGORIES = [
+    "All",
+    "Development",
+    "Design",
+    "Writing",
+    "Tutoring",
+    "Marketing",
+    "Photography",
+    "Events",
+    "Delivery & Errands",
+    "Music & Audio",
+    "Data & Research",
+    "Other"
+];
 
 interface JobsContentProps {
     initialJobs: Job[];
@@ -86,11 +99,9 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
         }
     }
 
-    // Only fetch if category changes after initial mount
+    // Fetch jobs when category or filters change
     useEffect(() => {
-        if (selectedCategory !== "All") {
-            fetchJobs();
-        }
+        fetchJobs();
     }, [selectedCategory]);
 
     const handleSearch = (e: React.FormEvent) => {
@@ -126,15 +137,16 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
 
                     {/* Search & Filter Bar */}
                     <div className="sticky top-20 z-40 -mx-4 px-4 py-4 bg-zinc-50/80 backdrop-blur-sm dark:bg-black/80">
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                            <form onSubmit={handleSearch} className="relative flex-1">
+                        <div className="flex flex-col gap-3">
+                            {/* Row 1: Search Bar */}
+                            <form onSubmit={handleSearch} className="relative w-full">
                                 <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                                 <input
                                     type="text"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     placeholder="Search for jobs (e.g. 'design', 'tutor')..."
-                                    className="w-full rounded-full border border-zinc-200 bg-white py-3 pl-10 pr-4 text-sm outline-none ring-primary/20 transition-all focus:border-primary focus:ring-4 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-primary/10"
+                                    className="w-full rounded-2xl border border-zinc-200 bg-white py-3 pl-10 pr-4 text-sm outline-none ring-primary/20 transition-all focus:border-primary focus:ring-4 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-primary/10"
                                 />
                                 {searchQuery && (
                                     <button
@@ -146,32 +158,59 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
                                     </button>
                                 )}
                             </form>
+
+                            {/* Row 2: Category Selection & Filters */}
                             <div className="flex items-center gap-2">
-                                <div className="relative">
+                                {/* Category Selector (Dropdown on mobile, scrollable on desktop) */}
+                                <div className="relative flex-1">
+                                    {/* Mobile Dropdown Button */}
                                     <button
                                         onClick={() => setShowCategoryMenu(!showCategoryMenu)}
-                                        aria-label="Filter by category"
-                                        className={`flex items-center gap-2 rounded-full border px-4 py-3 text-sm font-medium transition-colors ${selectedCategory !== "All"
+                                        className={`flex w-full items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-bold transition-all md:hidden ${selectedCategory !== "All"
                                             ? "border-primary bg-primary/10 text-primary"
-                                            : "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
+                                            : "border-zinc-200 bg-white text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50"
                                             }`}
                                     >
-                                        <Filter className="h-4 w-4" />
-                                        {selectedCategory === "All" ? "Categories" : selectedCategory}
+                                        <div className="flex items-center gap-2">
+                                            <Filter className="h-4 w-4" />
+                                            {selectedCategory === "All" ? "Category" : selectedCategory}
+                                        </div>
+                                        <motion.div
+                                            animate={{ rotate: showCategoryMenu ? 180 : 0 }}
+                                            transition={{ duration: 0.2 }}
+                                        >
+                                            <SlidersHorizontal className="h-4 w-4 rotate-90" />
+                                        </motion.div>
                                     </button>
+
+                                    {/* Desktop Chips */}
+                                    <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide px-1">
+                                        {CATEGORIES.map((cat) => (
+                                            <button
+                                                key={cat}
+                                                onClick={() => setSelectedCategory(cat)}
+                                                className={`shrink-0 rounded-full px-5 py-2 text-xs font-bold transition-all active:scale-95 ${selectedCategory === cat
+                                                    ? "bg-primary text-white shadow-lg shadow-primary/25"
+                                                    : "bg-white border border-zinc-200 text-zinc-600 hover:border-zinc-300 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-700"
+                                                    }`}
+                                            >
+                                                {cat}
+                                            </button>
+                                        ))}
+                                    </div>
 
                                     <AnimatePresence>
                                         {showCategoryMenu && (
                                             <>
                                                 <div
-                                                    className="fixed inset-0 z-40"
+                                                    className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
                                                     onClick={() => setShowCategoryMenu(false)}
                                                 />
                                                 <motion.div
                                                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                    className="absolute right-0 mt-2 w-48 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900 z-50"
+                                                    className="absolute left-0 right-0 z-50 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
                                                 >
                                                     {CATEGORIES.map((cat) => (
                                                         <button
@@ -180,7 +219,7 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
                                                                 setSelectedCategory(cat);
                                                                 setShowCategoryMenu(false);
                                                             }}
-                                                            className={`w-full px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 ${selectedCategory === cat ? "text-primary" : "text-zinc-600 dark:text-zinc-400"
+                                                            className={`w-full rounded-xl px-4 py-3 text-left text-sm font-bold transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900 ${selectedCategory === cat ? "text-primary" : "text-zinc-600 dark:text-zinc-400"
                                                                 }`}
                                                         >
                                                             {cat}
@@ -191,15 +230,17 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
                                         )}
                                     </AnimatePresence>
                                 </div>
+
+                                {/* Filter Toggle Button */}
                                 <button
                                     onClick={() => setShowFilters(!showFilters)}
-                                    className={`flex items-center gap-2 rounded-full border px-4 py-3 text-sm font-medium transition-colors ${showFilters
-                                        ? "border-primary bg-primary/10 text-primary"
+                                    className={`flex shrink-0 items-center justify-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-bold transition-all ${showFilters
+                                        ? "border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10"
                                         : "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
                                         }`}
                                 >
                                     <SlidersHorizontal className="h-4 w-4" />
-                                    More Filters
+                                    <span className="md:inline">Filters</span>
                                 </button>
                             </div>
                         </div>

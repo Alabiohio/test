@@ -195,9 +195,15 @@ export default function CreateJobPage() {
                                 >
                                     <option>Development</option>
                                     <option>Design</option>
+                                    <option>Writing</option>
+                                    <option>Tutoring</option>
                                     <option>Marketing</option>
-                                    <option>Education</option>
+                                    <option>Photography</option>
                                     <option>Events</option>
+                                    <option>Delivery & Errands</option>
+                                    <option>Music & Audio</option>
+                                    <option>Data & Research</option>
+                                    <option>Other</option>
                                 </select>
                             </div>
                         </div>

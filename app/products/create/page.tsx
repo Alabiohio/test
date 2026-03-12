@@ -10,7 +10,18 @@ import { supabase } from "@/lib/supabase";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import Link from "next/link";
 
-const CATEGORIES = ["Gadgets", "Books", "Bags", "Course Materials", "Digital Products", "Fashion", "Other"];
+const CATEGORIES = [
+    "Electronics",
+    "Textbooks",
+    "Fashion",
+    "Dorm Essentials",
+    "Course Materials",
+    "Sports & Leisure",
+    "Digital Products",
+    "Food & Snacks",
+    "Tickets & Events",
+    "Other"
+];
 
 import { productSchema } from "@/lib/validations";
 
