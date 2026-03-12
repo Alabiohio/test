@@ -17,9 +17,6 @@
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-
-  --font-acme: var(--font-acme);
-  --font-nova: var(--font-nova-slim);
 }
 
 @layer utilities {

@@ -14,7 +14,8 @@ import {
     AlertCircle,
     Calendar,
     ChevronRight,
-    MessageSquare
+    MessageSquare,
+    Star
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
@@ -37,6 +38,13 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
 
+    // Rating / Completion States
+    const [showRatingModal, setShowRatingModal] = useState(false);
+    const [rating, setRating] = useState(5);
+    const [reviewComment, setReviewComment] = useState("");
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+    const [selectedFreelancer, setSelectedFreelancer] = useState<ProposalWithFreelancer | null>(null);
+
     useEffect(() => {
         async function fetchData() {
             try {
@@ -55,6 +63,7 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
                     .from('jobs')
                     .select('*')
                     .eq('id', id)
+                    .eq('is_deleted', false)
                     .single();
 
                 if (jobError) throw jobError;
@@ -110,9 +119,7 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
 
             if (jError) throw jError;
 
-            toast.success("Student hired successfully!");
-
-            // 3. Reject other proposals (optional but good for MVP clarity)
+            // 3. Reject other proposals
             const { error: rError } = await supabase
                 .from('proposals')
                 .update({ status: 'rejected' })
@@ -121,15 +128,103 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
 
             if (rError) console.error("Error rejecting other proposals:", rError);
 
-            // Refresh data
-            setTimeout(() => {
-                router.refresh();
-                window.location.reload();
-            }, 1000);
+            toast.success("Student hired successfully!");
+
+            // Update local state for immediate feedback
+            setJob(prev => prev ? { ...prev, status: 'in-progress' } : null);
+            setProposals(prev => prev.map(p =>
+                p.id === proposalId ? { ...p, status: 'accepted' } : { ...p, status: 'rejected' }
+            ));
 
         } catch (err: any) {
             console.error("Error accepting proposal:", err);
             toast.error("Failed to accept proposal: " + err.message);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleCompleteJob = async (proposal?: ProposalWithFreelancer) => {
+        if (!confirm("Are you sure you want to mark this job as complete?")) return;
+
+        try {
+            setActionLoading('completing');
+            const { error } = await supabase
+                .from('jobs')
+                .update({ status: 'completed' })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success("Job marked as complete!");
+
+            // Update local state
+            setJob(prev => prev ? { ...prev, status: 'completed' } : null);
+
+            if (proposal) {
+                setSelectedFreelancer(proposal);
+            } else {
+                const hired = proposals.find(p => p.status === 'accepted');
+                if (hired) setSelectedFreelancer(hired);
+            }
+
+            setShowRatingModal(true);
+            router.refresh();
+
+        } catch (err: any) {
+            console.error("Error completing job:", err);
+            toast.error("Failed to complete job: " + err.message);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleSubmitReview = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentUser || !selectedFreelancer) return;
+
+        setIsSubmittingReview(true);
+        try {
+            const { error: reviewError } = await supabase
+                .from('reviews')
+                .insert([{
+                    job_id: id,
+                    reviewer_id: currentUser.id,
+                    receiver_id: selectedFreelancer.freelancer_id,
+                    receiver_role: 'student',
+                    rating: rating,
+                    comment: reviewComment
+                }]);
+
+            if (reviewError) throw reviewError;
+
+            toast.success("Rating submitted! Thank you for your feedback.");
+            setShowRatingModal(false);
+        } catch (err: any) {
+            console.error("Error submitting review:", err);
+            toast.error("Failed to submit rating. You might have already rated this student.");
+        } finally {
+            setIsSubmittingReview(false);
+        }
+    };
+
+    const handleRejectProposal = async (proposalId: string) => {
+        if (!confirm("Are you sure you want to reject this proposal?")) return;
+
+        try {
+            setActionLoading(proposalId);
+            const { error } = await supabase
+                .from('proposals')
+                .update({ status: 'rejected' })
+                .eq('id', proposalId);
+
+            if (error) throw error;
+
+            toast.success("Proposal rejected.");
+            setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'rejected' } : p));
+        } catch (err: any) {
+            console.error("Error rejecting proposal:", err);
+            toast.error("Failed to reject proposal.");
         } finally {
             setActionLoading(null);
         }
@@ -220,11 +315,7 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
                                         : 'border-zinc-200 dark:border-zinc-800'
                                         }`}
                                 >
-                                    {proposal.status === 'accepted' && (
-                                        <div className="absolute top-0 right-0 rounded-bl-2xl bg-primary px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-white">
-                                            Selected
-                                        </div>
-                                    )}
+
 
                                     <div className="flex flex-col gap-6 md:flex-row">
                                         {/* Freelancer Info */}
@@ -233,14 +324,14 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
                                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                                                     <User className="h-6 w-6" />
                                                 </div>
-                                                <div className="flex flex-col">
+                                                <Link href={`/profile/${proposal.freelancer_id}`} className="flex flex-col hover:opacity-80 transition-opacity">
                                                     <span className="font-bold text-zinc-900 dark:text-zinc-50">
                                                         {proposal.profiles?.full_name}
                                                     </span>
                                                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
                                                         {proposal.profiles?.university || 'Verified Student'}
                                                     </span>
-                                                </div>
+                                                </Link>
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-3 md:flex md:flex-col">
@@ -254,9 +345,12 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
                                                 </div>
                                             </div>
 
-                                            <button className="flex items-center justify-center gap-2 rounded-xl border border-zinc-200 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 transition-colors">
+                                            <Link
+                                                href={`/profile/${proposal.freelancer_id}`}
+                                                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-200 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 transition-colors"
+                                            >
                                                 View Profile <ExternalLink className="h-3 w-3" />
-                                            </button>
+                                            </Link>
                                         </div>
 
                                         {/* Cover Letter & Actions */}
@@ -275,21 +369,42 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
                                                 </div>
 
                                                 <div className="flex items-center gap-3">
-                                                    <button className="rounded-full p-2 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20">
-                                                        <XCircle className="h-6 w-6" />
-                                                    </button>
-                                                    {proposal.status === 'accepted' ? (
+                                                    {/* Reject button - only for pending on open jobs */}
+                                                    {proposal.status === 'pending' && job?.status === 'open' && (
                                                         <button
-                                                            disabled
-                                                            className="flex items-center gap-2 rounded-full bg-green-50 px-6 py-2.5 text-sm font-bold text-green-600 dark:bg-green-900/20"
+                                                            onClick={() => handleRejectProposal(proposal.id)}
+                                                            disabled={!!actionLoading}
+                                                            className="rounded-full p-2 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-all active:scale-90"
+                                                            title="Reject Proposal"
                                                         >
-                                                            <CheckCircle2 className="h-4 w-4" />
-                                                            Hired
+                                                            <XCircle className="h-6 w-6" />
                                                         </button>
-                                                    ) : (
+                                                    )}
+
+                                                    {/* Accepted and in-progress: Only show Mark as Complete */}
+                                                    {proposal.status === 'accepted' && job?.status === 'in-progress' && (
+                                                        <button
+                                                            onClick={() => handleCompleteJob(proposal)}
+                                                            disabled={actionLoading === 'completing'}
+                                                            className="flex items-center gap-2 rounded-full bg-black px-6 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200 transition-all shadow-lg active:scale-95"
+                                                        >
+                                                            {actionLoading === 'completing' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Mark as Complete'}
+                                                        </button>
+                                                    )}
+
+                                                    {/* Accepted and completed: Show status only */}
+                                                    {proposal.status === 'accepted' && job?.status === 'completed' && (
+                                                        <div className="flex items-center gap-2 rounded-full bg-zinc-100 px-6 py-2.5 text-sm font-bold text-zinc-500 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                                                            <CheckCircle2 className="h-4 w-4" />
+                                                            Project Completed
+                                                        </div>
+                                                    )}
+
+                                                    {/* Not accepted, but job is open: Show hire button if pending */}
+                                                    {proposal.status === 'pending' && job?.status === 'open' && (
                                                         <button
                                                             onClick={() => handleAcceptProposal(proposal.id, proposal.freelancer_id)}
-                                                            disabled={!!actionLoading || job?.status !== 'open'}
+                                                            disabled={!!actionLoading}
                                                             className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50 shadow-lg shadow-primary/20 active:scale-95 transition-all"
                                                         >
                                                             {actionLoading === proposal.id ? (
@@ -302,6 +417,16 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
                                                             )}
                                                         </button>
                                                     )}
+
+                                                    {/* Status badge for other cases (rejected, etc) */}
+                                                    {proposal.status !== 'pending' && proposal.status !== 'accepted' && (
+                                                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full border ${proposal.status === 'rejected'
+                                                            ? 'text-zinc-400 border-zinc-100 dark:border-zinc-900'
+                                                            : 'text-zinc-500 border-zinc-200 dark:border-zinc-800'
+                                                            }`}>
+                                                            {proposal.status}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -313,6 +438,74 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
 
                 </div>
             </main>
+
+            {/* Rating Modal */}
+            <AnimatePresence>
+                {showRatingModal && selectedFreelancer && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowRatingModal(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg overflow-hidden rounded-[2.5rem] border border-zinc-200 bg-white p-8 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+                        >
+                            <div className="flex flex-col items-center text-center gap-6">
+                                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <Star className="h-10 w-10 text-primary" />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h2 className="text-2xl font-black text-zinc-900 dark:text-white">Rate {selectedFreelancer.profiles?.full_name}</h2>
+                                    <p className="text-zinc-500 text-sm">
+                                        How was your experience working with <span className="font-bold text-primary">{selectedFreelancer.profiles?.full_name}</span>?
+                                    </p>
+                                </div>
+
+                                <form onSubmit={handleSubmitReview} className="w-full space-y-6">
+                                    <div className="flex justify-center gap-2">
+                                        {[1, 2, 3, 4, 5].map((num) => (
+                                            <button
+                                                key={num}
+                                                type="button"
+                                                onClick={() => setRating(num)}
+                                                className={`p-2 transition-all ${rating >= num ? 'text-primary' : 'text-zinc-200 dark:text-zinc-800 hover:text-primary/40'}`}
+                                            >
+                                                <Star className={`h-8 w-8 ${rating >= num ? 'fill-current' : ''}`} />
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="space-y-2 text-left">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Leave a comment</label>
+                                        <textarea
+                                            value={reviewComment}
+                                            onChange={(e) => setReviewComment(e.target.value)}
+                                            rows={4}
+                                            className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                                            placeholder="Write a brief review about the work..."
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingReview}
+                                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-white shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                                    >
+                                        {isSubmittingReview ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Rating"}
+                                    </button>
+                                </form>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

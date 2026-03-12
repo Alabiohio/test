@@ -7,6 +7,7 @@ export default async function JobsPage() {
     const { data: jobs, error } = await supabase
         .from('jobs')
         .select('*')
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
     if (error) {

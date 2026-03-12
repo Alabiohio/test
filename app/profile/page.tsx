@@ -24,13 +24,14 @@ import {
     Camera,
     Save,
     X as CloseIcon,
-    Loader2
+    Loader2,
+    Star
 } from "lucide-react";
 import { Loading } from "@/components/Loading";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { supabase } from "@/lib/supabase";
-import type { Profile, Job, Proposal } from "@/types";
+import type { Profile, Job, Proposal, Review } from "@/types";
 import Link from "next/link";
 import { toast } from "sonner";
 import { uploadToCloudinary, getOptimizedImageUrl } from "@/lib/cloudinary";
@@ -41,8 +42,9 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [userJobs, setUserJobs] = useState<Job[]>([]);
     const [userProposals, setUserProposals] = useState<(Proposal & { jobs: Job })[]>([]);
+    const [userReviews, setUserReviews] = useState<(Review & { reviewer: Profile })[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'overview' | 'activity'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'reviews'>('overview');
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -50,6 +52,7 @@ export default function ProfilePage() {
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [editForm, setEditForm] = useState({
         full_name: "",
+        tagline: "",
         bio: "",
         university: "",
         skills: [] as string[],
@@ -59,6 +62,13 @@ export default function ProfilePage() {
             portfolio: ""
         }
     });
+
+    // Rating State
+    const [showRatingModal, setShowRatingModal] = useState(false);
+    const [selectedJobForRating, setSelectedJobForRating] = useState<(Job & { profiles: Profile }) | null>(null);
+    const [rating, setRating] = useState(5);
+    const [reviewComment, setReviewComment] = useState("");
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     useEffect(() => {
         async function fetchProfileData() {
@@ -82,6 +92,7 @@ export default function ProfilePage() {
                 setProfile(profileData);
                 setEditForm({
                     full_name: profileData.full_name || "",
+                    tagline: profileData.tagline || "",
                     bio: profileData.bio || "",
                     university: profileData.university || "",
                     skills: profileData.skills || [],
@@ -98,18 +109,41 @@ export default function ProfilePage() {
                         .from('jobs')
                         .select('*')
                         .eq('client_id', user.id)
+                        .eq('is_deleted', false)
                         .order('created_at', { ascending: false });
                     setUserJobs(jobsData || []);
                 }
 
                 // If Student, fetch their proposals
                 if (profileData.role === 'student') {
-                    const { data: proposalsData } = await supabase
+                    const { data: proposalsData, error: proposalError } = await supabase
                         .from('proposals')
-                        .select('*, jobs(*)')
+                        .select(`
+                            *,
+                            jobs (
+                                *,
+                                profiles:client_id (*)
+                            )
+                        `)
                         .eq('freelancer_id', user.id)
                         .order('created_at', { ascending: false });
+
+                    if (proposalError) throw proposalError;
                     setUserProposals(proposalsData as any || []);
+                }
+
+                // Fetch Reviews — filter by receiver_id AND the role they were reviewed as
+                const { data: reviewsData, error: reviewsError } = await supabase
+                    .from('reviews')
+                    .select('*, jobs(title), reviewer:profiles!reviewer_id(*)')
+                    .eq('receiver_id', user.id)
+                    .eq('receiver_role', profileData.role)
+                    .order('created_at', { ascending: false });
+
+                if (reviewsError) {
+                    console.error("Error fetching reviews for current user's profile:", reviewsError);
+                } else {
+                    setUserReviews(reviewsData as any || []);
                 }
 
             } catch (error) {
@@ -164,6 +198,7 @@ export default function ProfilePage() {
                 .from('profiles')
                 .update({
                     full_name: editForm.full_name,
+                    tagline: editForm.tagline,
                     bio: editForm.bio,
                     university: editForm.university,
                     skills: editForm.skills,
@@ -176,6 +211,7 @@ export default function ProfilePage() {
             setProfile(prev => prev ? {
                 ...prev,
                 full_name: editForm.full_name,
+                tagline: editForm.tagline,
                 bio: editForm.bio,
                 university: editForm.university,
                 skills: editForm.skills,
@@ -198,7 +234,7 @@ export default function ProfilePage() {
         try {
             const { error } = await supabase
                 .from('jobs')
-                .delete()
+                .update({ is_deleted: true })
                 .eq('id', jobId);
 
             if (error) throw error;
@@ -208,6 +244,40 @@ export default function ProfilePage() {
         } catch (error) {
             console.error("Error deleting job:", error);
             toast.error("Failed to delete the gig. Please try again.");
+        }
+    };
+
+    const handleSubmitReview = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedJobForRating || !profile) return;
+
+        try {
+            setIsSubmittingReview(true);
+            const { error } = await supabase
+                .from('reviews')
+                .insert({
+                    reviewer_id: profile.id, // The student is the reviewer
+                    receiver_id: selectedJobForRating.client_id, // The client is the receiver
+                    receiver_role: 'client',
+                    job_id: selectedJobForRating.id,
+                    rating: rating,
+                    comment: reviewComment
+                });
+
+            if (error) throw error;
+
+            toast.success("Review submitted successfully!");
+            setShowRatingModal(false);
+            setSelectedJobForRating(null);
+            setRating(5);
+            setReviewComment("");
+            // Optionally, refresh reviews or update local state
+            // For now, just close the modal and show success.
+        } catch (error) {
+            console.error("Error submitting review:", error);
+            toast.error("Failed to submit review. Please try again.");
+        } finally {
+            setIsSubmittingReview(false);
         }
     };
 
@@ -276,10 +346,15 @@ export default function ProfilePage() {
                                 </div>
 
                                 <div className="flex flex-col gap-2">
-                                    <h1 className="text-3xl font-acme tracking-tight text-zinc-900 dark:text-zinc-50">
+                                    <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
                                         {profile.full_name}
                                     </h1>
-                                    <div className="flex items-center justify-center gap-2">
+                                    {profile.tagline && (
+                                        <p className="text-sm font-semibold text-primary/80 dark:text-primary/60">
+                                            {profile.tagline}
+                                        </p>
+                                    )}
+                                    <div className="flex items-center justify-center gap-2 mt-1">
                                         <span className="rounded-full bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-primary border border-primary/20">
                                             {profile.role}
                                         </span>
@@ -329,7 +404,7 @@ export default function ProfilePage() {
 
                         {/* Quick Info Card */}
                         <div className="glass-card premium-shadow rounded-[2rem] p-6 border border-white/20 dark:border-white/10">
-                            <h3 className="text-lg font-nova font-black uppercase tracking-widest text-zinc-900 dark:text-white mb-6 flex items-center gap-3">
+                            <h3 className="text-lg font-black uppercase tracking-widest text-zinc-900 dark:text-white mb-6 flex items-center gap-3">
                                 <div className="h-2 w-2 rounded-full bg-primary" />
                                 Details
                             </h3>
@@ -367,7 +442,7 @@ export default function ProfilePage() {
                         {/* Skills Section (Students Only) */}
                         {profile.role === 'student' && (
                             <div className="glass-card premium-shadow rounded-[2rem] p-6 border border-white/20 dark:border-white/10">
-                                <h3 className="text-lg font-nova font-black uppercase tracking-widest text-zinc-900 dark:text-white mb-6 flex items-center gap-3">
+                                <h3 className="text-lg font-black uppercase tracking-widest text-zinc-900 dark:text-white mb-6 flex items-center gap-3">
                                     <div className="h-2 w-2 rounded-full bg-primary" />
                                     Skills
                                 </h3>
@@ -391,13 +466,31 @@ export default function ProfilePage() {
                         {/* Stats Bar */}
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {[
-                                { label: 'Rating', value: '5.0', icon: <CheckCircle2 className="h-5 w-5" /> },
-                                { label: 'Trust Level', value: 'Prime', icon: <ShieldCheck className="h-5 w-5" /> },
-                                { label: 'Completed', value: '12', icon: <Briefcase className="h-5 w-5" /> },
+                                {
+                                    label: 'Rating',
+                                    value: userReviews.length > 0
+                                        ? (userReviews.reduce((acc, r) => acc + r.rating, 0) / userReviews.length).toFixed(1)
+                                        : '5.0',
+                                    icon: <Star className="h-5 w-5" />
+                                },
+                                {
+                                    label: 'Completed',
+                                    value: profile.role === 'client'
+                                        ? userJobs.filter(j => j.status === 'completed').length.toString()
+                                        : userProposals.filter(p => p.status === 'accepted' && p.jobs?.status === 'completed').length.toString(),
+                                    icon: <Briefcase className="h-5 w-5" />
+                                },
+                                {
+                                    label: profile.role === 'client' ? 'Active Gigs' : 'Applications',
+                                    value: profile.role === 'client'
+                                        ? userJobs.filter(j => j.status === 'open' || j.status === 'in-progress').length.toString()
+                                        : userProposals.length.toString(),
+                                    icon: <Clock className="h-5 w-5" />
+                                },
                             ].map((stat, i) => (
                                 <div key={i} className="glass-card premium-shadow rounded-3xl p-6 border border-white/20 dark:border-white/10 flex flex-col items-center justify-center gap-1 group/stat hover:scale-[1.02] transition-transform">
                                     <div className="text-primary opacity-50 group-hover:opacity-100 transition-opacity mb-2">{stat.icon}</div>
-                                    <span className="text-2xl font-nova font-black text-zinc-900 dark:text-white">{stat.value}</span>
+                                    <span className="text-2xl font-black text-zinc-900 dark:text-white">{stat.value}</span>
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{stat.label}</span>
                                 </div>
                             ))}
@@ -420,6 +513,13 @@ export default function ProfilePage() {
                                     {profile.role === 'client' ? 'Gigs Posted' : 'Applications'}
                                     {activeTab === 'activity' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('reviews')}
+                                    className={`h-full text-sm font-black uppercase tracking-widest transition-all relative px-2 ${activeTab === 'reviews' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                >
+                                    Reviews ({userReviews.length})
+                                    {activeTab === 'reviews' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
+                                </button>
                             </div>
 
                             <div className="pt-8">
@@ -436,7 +536,7 @@ export default function ProfilePage() {
                                                 <div className="h-20 w-20 rounded-[1.5rem] bg-primary/5 flex items-center justify-center">
                                                     <Clock className="h-10 w-10 text-primary opacity-20" />
                                                 </div>
-                                                <h4 className="text-xl font-acme text-zinc-900 dark:text-white">Recent Updates</h4>
+                                                <h4 className="text-xl font-bold text-zinc-900 dark:text-white">Recent Updates</h4>
                                                 <p className="text-zinc-500 text-sm max-w-sm">
                                                     You don't have any recent notifications or status changes. Keep active to build your campus reputation!
                                                 </p>
@@ -445,7 +545,7 @@ export default function ProfilePage() {
                                                 </Link>
                                             </div>
                                         </motion.div>
-                                    ) : (
+                                    ) : activeTab === 'activity' ? (
                                         <motion.div
                                             key="activity"
                                             initial={{ opacity: 0, x: 20 }}
@@ -482,7 +582,7 @@ export default function ProfilePage() {
                                                                                 </div>
                                                                             </div>
                                                                             <div className="flex flex-col items-end gap-2 pr-12">
-                                                                                <span className="text-xl font-nova font-black text-primary">${job.budget}</span>
+                                                                                <span className="text-xl font-black text-primary">${job.budget}</span>
                                                                                 <span className={`rounded-full px-3 py-1 text-[8px] font-black uppercase tracking-[0.2em] border ${job.status === 'open' ? 'bg-green-100/50 text-green-700 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-primary/5 text-primary border-primary/20'
                                                                                     }`}>
                                                                                     {job.status}
@@ -534,12 +634,36 @@ export default function ProfilePage() {
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex flex-col items-end gap-2">
-                                                                            <span className="text-xl font-nova font-black text-primary">${proposal.bid_amount}</span>
-                                                                            <span className={`rounded-full px-3 py-1 text-[8px] font-black uppercase tracking-[0.2em] border ${proposal.status === 'accepted' ? 'bg-green-100/50 text-green-700 border-green-200 dark:bg-green-900/20 dark:border-green-800' :
-                                                                                proposal.status === 'pending' ? 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700' : 'bg-red-50 text-red-600 border-red-200'
+                                                                            <span className="text-xl font-black text-primary">${proposal.bid_amount}</span>
+                                                                            <span className={`rounded-full px-3 py-1 text-[8px] font-black uppercase tracking-[0.2em] border ${proposal.status === 'accepted'
+                                                                                ? proposal.jobs?.status === 'completed'
+                                                                                    ? 'bg-zinc-100/50 text-zinc-500 border-zinc-200 dark:bg-zinc-900/20 dark:border-zinc-800'
+                                                                                    : 'bg-green-100/50 text-green-700 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                                                                                : proposal.status === 'pending'
+                                                                                    ? 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700'
+                                                                                    : 'bg-red-50 text-red-600 border-red-200'
                                                                                 }`}>
-                                                                                {proposal.status}
+                                                                                {proposal.status === 'accepted'
+                                                                                    ? proposal.jobs?.status === 'completed'
+                                                                                        ? 'Completed'
+                                                                                        : 'Hired / In Progress'
+                                                                                    : proposal.status}
                                                                             </span>
+
+                                                                            {proposal.status === 'accepted' && proposal.jobs?.status === 'completed' && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        e.stopPropagation();
+                                                                                        setSelectedJobForRating(proposal.jobs as any);
+                                                                                        setShowRatingModal(true);
+                                                                                    }}
+                                                                                    className="mt-2 flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-primary hover:bg-primary transition-all hover:text-white"
+                                                                                >
+                                                                                    <Star className="h-2 w-2 fill-current" />
+                                                                                    Rate Client
+                                                                                </button>
+                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -547,6 +671,55 @@ export default function ProfilePage() {
                                                         ))
                                                     )}
                                                 </>
+                                            )}
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div
+                                            key="reviews"
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -20 }}
+                                            className="flex flex-col gap-6"
+                                        >
+                                            {userReviews.length === 0 ? (
+                                                <div className="rounded-[2rem] border-2 border-dashed border-zinc-200 py-12 text-center dark:border-zinc-800">
+                                                    <Star className="mx-auto h-12 w-12 text-zinc-300 mb-4" />
+                                                    <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">No reviews yet.</p>
+                                                    <p className="text-zinc-400 text-sm mt-2">Complete gigs to start building your campus rating!</p>
+                                                </div>
+                                            ) : (
+                                                userReviews.map((review) => (
+                                                    <div key={review.id} className="glass-card premium-shadow rounded-3xl p-6 border border-zinc-200/50 dark:border-zinc-800/50 flex flex-col gap-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <Link href={`/profile/${review.reviewer_id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                                                                    {review.reviewer?.avatar_url ? (
+                                                                        <img src={getOptimizedImageUrl(review.reviewer.avatar_url, 100, 100)} className="h-full w-full object-cover" />
+                                                                    ) : (
+                                                                        <User className="h-5 w-5 text-primary" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm font-bold text-zinc-900 dark:text-white">{review.reviewer?.full_name || 'Anonymous User'}</span>
+                                                                    <span className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">{new Date(review.created_at).toLocaleDateString()}</span>
+                                                                </div>
+                                                            </Link>
+                                                            <div className="flex flex-col items-end gap-1">
+                                                                <div className="flex gap-1">
+                                                                    {[1, 2, 3, 4, 5].map((num) => (
+                                                                        <Star key={num} className={`h-4 w-4 ${review.rating >= num ? 'text-primary fill-current' : 'text-zinc-200 dark:text-zinc-800'}`} />
+                                                                    ))}
+                                                                </div>
+                                                                {review.jobs?.title && (
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-primary/60">{review.jobs.title}</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-zinc-600 dark:text-zinc-400 text-sm italic font-medium">
+                                                            "{review.comment || "No comment left."}"
+                                                        </p>
+                                                    </div>
+                                                ))
                                             )}
                                         </motion.div>
                                     )}
@@ -577,7 +750,7 @@ export default function ProfilePage() {
                         >
                             <div className="flex h-full flex-col">
                                 <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 p-6">
-                                    <h2 className="text-xl font-nova font-black uppercase tracking-widest text-zinc-900 dark:text-white">Edit Profile</h2>
+                                    <h2 className="text-xl font-black uppercase tracking-widest text-zinc-900 dark:text-white">Edit Profile</h2>
                                     <button
                                         onClick={() => setIsEditModalOpen(false)}
                                         className="rounded-xl p-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
@@ -597,6 +770,18 @@ export default function ProfilePage() {
                                             className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                                             placeholder="Your full name"
                                             required
+                                        />
+                                    </div>
+
+                                    {/* Tagline Field */}
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Professional Headline (Tagline)</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.tagline}
+                                            onChange={(e) => setEditForm(prev => ({ ...prev, tagline: e.target.value.slice(0, 80) }))}
+                                            className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                                            placeholder="e.g. Creative UI/UX Designer | Next.js Developer"
                                         />
                                     </div>
 
@@ -700,6 +885,73 @@ export default function ProfilePage() {
                     </>
                 )}
             </AnimatePresence>
-        </div>
+            {/* Rating Modal */}
+            <AnimatePresence>
+                {showRatingModal && selectedJobForRating && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowRatingModal(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg overflow-hidden rounded-[2.5rem] border border-zinc-200 bg-white p-8 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+                        >
+                            <div className="flex flex-col items-center text-center gap-6">
+                                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <Star className="h-10 w-10 text-primary" />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h2 className="text-2xl font-black text-zinc-900 dark:text-white">Rate {selectedJobForRating.profiles?.full_name || 'the client'}</h2>
+                                    <p className="text-zinc-500 text-sm">
+                                        How was your experience working for <span className="font-bold text-primary">{selectedJobForRating.profiles?.full_name || 'this client'}</span>?
+                                    </p>
+                                </div>
+
+                                <form onSubmit={handleSubmitReview} className="w-full space-y-6">
+                                    <div className="flex justify-center gap-2">
+                                        {[1, 2, 3, 4, 5].map((num) => (
+                                            <button
+                                                key={num}
+                                                type="button"
+                                                onClick={() => setRating(num)}
+                                                className={`p-2 transition-all ${rating >= num ? 'text-primary' : 'text-zinc-200 dark:text-zinc-800 hover:text-primary/40'}`}
+                                            >
+                                                <Star className={`h-8 w-8 ${rating >= num ? 'fill-current' : ''}`} />
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="space-y-2 text-left">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Leave a comment</label>
+                                        <textarea
+                                            value={reviewComment}
+                                            onChange={(e) => setReviewComment(e.target.value)}
+                                            rows={4}
+                                            className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                                            placeholder="Write a brief review about the collaboration..."
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingReview}
+                                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-white shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                                    >
+                                        {isSubmittingReview ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Rating"}
+                                    </button>
+                                </form>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </div >
     );
 }

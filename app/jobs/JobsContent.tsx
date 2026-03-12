@@ -52,6 +52,7 @@ export function JobsContent({ initialJobs }: JobsContentProps) {
             let query = supabase
                 .from('jobs')
                 .select('*')
+                .eq('is_deleted', false)
                 .order('created_at', { ascending: false });
 
             if (selectedCategory !== "All") {

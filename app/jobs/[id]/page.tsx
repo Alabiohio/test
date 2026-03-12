@@ -10,6 +10,8 @@ import { supabase } from "@/lib/supabase";
 import type { Job, Profile, Proposal } from "@/types";
 import { Footer } from "@/components/Footer";
 import { toast } from "sonner";
+import Link from "next/link";
+import { Star } from "lucide-react";
 
 type JobWithClient = Job & {
     profiles: Profile;
@@ -35,6 +37,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     const [success, setSuccess] = useState(false);
     const [isReporting, setIsReporting] = useState(false);
 
+    // Rating / Completion States
+    const [acceptedProposal, setAcceptedProposal] = useState<(Proposal & { profiles: Profile }) | null>(null);
+    const [showRatingModal, setShowRatingModal] = useState(false);
+    const [rating, setRating] = useState(5);
+    const [reviewComment, setReviewComment] = useState("");
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
     useEffect(() => {
         async function fetchData() {
             try {
@@ -55,6 +64,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                         )
                     `)
                     .eq('id', id)
+                    .eq('is_deleted', false)
                     .maybeSingle();
 
                 if (jobError) {
@@ -86,6 +96,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                         .maybeSingle();
 
                     if (proposal) setHasApplied(true);
+
+                    // Fetch accepted proposal for the job to show hiring status
+                    const { data: acceptedProp } = await supabase
+                        .from('proposals')
+                        .select('*, profiles(*)')
+                        .eq('job_id', id)
+                        .eq('status', 'accepted')
+                        .maybeSingle();
+
+                    if (acceptedProp) setAcceptedProposal(acceptedProp as any);
                 }
             } catch (err: any) {
                 setError(err?.message || 'An unexpected error occurred');
@@ -192,6 +212,58 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         }
     };
 
+    const handleCompleteJob = async () => {
+        if (!confirm("Are you sure this job is completed? This will allow you to rate the student.")) return;
+
+        setSubmitting(true);
+        try {
+            const { error: updateError } = await supabase
+                .from('jobs')
+                .update({ status: 'completed' })
+                .eq('id', id);
+
+            if (updateError) throw updateError;
+
+            setJob(prev => prev ? { ...prev, status: 'completed' } : null);
+            setShowRatingModal(true);
+            toast.success("Gig marked as completed!");
+        } catch (err: any) {
+            console.error("Error completing job:", err);
+            toast.error(err.message || "Failed to complete the gig.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleSubmitReview = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentUser || !acceptedProposal) return;
+
+        setIsSubmittingReview(true);
+        try {
+            const { error: reviewError } = await supabase
+                .from('reviews')
+                .insert([{
+                    job_id: id,
+                    reviewer_id: currentUser.id,
+                    receiver_id: acceptedProposal.freelancer_id,
+                    receiver_role: 'student',
+                    rating: rating,
+                    comment: reviewComment
+                }]);
+
+            if (reviewError) throw reviewError;
+
+            toast.success("Rating submitted! Thank you for your feedback.");
+            setShowRatingModal(false);
+        } catch (err: any) {
+            console.error("Error submitting review:", err);
+            toast.error(err.message || "Failed to submit rating. You might have already rated this job.");
+        } finally {
+            setIsSubmittingReview(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 dark:bg-black">
@@ -246,6 +318,27 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                             className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-xl shadow-black/5 dark:border-zinc-800 dark:bg-zinc-950"
                         >
                             <div className="p-8 sm:p-12">
+                                {acceptedProposal?.freelancer_id === currentUser?.id && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="mb-8 rounded-3xl bg-primary/5 p-6 border border-primary/20 flex flex-col sm:flex-row items-center gap-6 relative overflow-hidden"
+                                    >
+                                        <div className="absolute top-0 right-0 p-8 opacity-10">
+                                            <CheckCircle2 className="h-24 w-24 text-primary" />
+                                        </div>
+                                        <div className="h-16 w-16 rounded-[2rem] bg-primary flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/30">
+                                            <CheckCircle2 className="h-8 w-8" />
+                                        </div>
+                                        <div className="text-center sm:text-left relative z-10">
+                                            <h4 className="text-xl font-black text-primary mb-1 tracking-tight">You're Hired for this Gig!</h4>
+                                            <p className="text-sm font-medium text-primary/70 leading-relaxed">
+                                                Great work! The client has selected your proposal. Start collaborating via <Link href={`/messages?user=${job.client_id}`} className="font-bold underline">Messages</Link> to get things moving.
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                )}
+
                                 <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
                                     <div className="flex flex-col gap-2">
                                         <span className="inline-flex w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
@@ -333,13 +426,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                             {/* Apply Card */}
                             <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl shadow-black/5 dark:border-zinc-800 dark:bg-zinc-950">
                                 {hasApplied ? (
-                                    <div className="flex flex-col items-center gap-3 rounded-2xl bg-green-50 p-4 dark:bg-green-900/20">
-                                        <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
-                                        <span className="font-bold text-green-700 dark:text-green-300">Application Sent</span>
-                                        <p className="text-center text-xs text-green-600/80 dark:text-green-400/80">
-                                            The client has been notified. We'll let you know if they respond!
-                                        </p>
-                                    </div>
+                                    acceptedProposal?.freelancer_id === currentUser?.id ? null : (
+                                        <div className="flex flex-col items-center gap-3 rounded-2xl bg-green-50 p-4 dark:bg-green-900/20">
+                                            <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+                                            <span className="font-bold text-green-700 dark:text-green-300">Application Sent</span>
+                                            <p className="text-center text-xs text-green-600/80 dark:text-green-400/80">
+                                                The client has been notified. We'll let you know if they respond!
+                                            </p>
+                                        </div>
+                                    )
                                 ) : isOwner ? (
                                     <div className="flex flex-col items-center gap-3 rounded-2xl bg-primary/10 p-4">
                                         <span className="font-bold text-primary">This is your job</span>
@@ -349,6 +444,25 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                         >
                                             View Proposals
                                         </button>
+                                        {job.status === 'in-progress' && (
+                                            <button
+                                                onClick={handleCompleteJob}
+                                                disabled={submitting}
+                                                className="w-full rounded-xl bg-green-600 py-2 text-sm font-bold text-white hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <CheckCircle2 className="h-4 w-4" />
+                                                Mark as Completed
+                                            </button>
+                                        )}
+                                        {job.status === 'completed' && acceptedProposal && (
+                                            <button
+                                                onClick={() => setShowRatingModal(true)}
+                                                className="w-full rounded-xl bg-zinc-900 py-2 text-sm font-bold text-white hover:bg-black transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <Star className="h-4 w-4" />
+                                                Rate Student
+                                            </button>
+                                        )}
                                         <button
                                             disabled={submitting}
                                             onClick={handleDelete}
@@ -359,12 +473,21 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                         </button>
                                     </div>
                                 ) : (
-                                    <button
-                                        onClick={() => setShowApplyModal(true)}
-                                        className="mb-4 w-full rounded-2xl bg-black py-4 text-center font-bold text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200 transition-all shadow-lg"
-                                    >
-                                        Submit a Proposal
-                                    </button>
+                                    job.status === 'open' ? (
+                                        <button
+                                            onClick={() => setShowApplyModal(true)}
+                                            className="mb-4 w-full rounded-2xl bg-black py-4 text-center font-bold text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200 transition-all shadow-lg"
+                                        >
+                                            Submit a Proposal
+                                        </button>
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-2 rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-900/50">
+                                            <span className="font-bold text-zinc-500 uppercase tracking-widest text-[10px]">Gig is Closed</span>
+                                            <p className="text-center text-[10px] text-zinc-400">
+                                                {job.status === 'completed' ? 'This project has been completed.' : 'A freelancer has already been hired for this gig.'}
+                                            </p>
+                                        </div>
+                                    )
                                 )}
                                 <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                                     Secure payment guaranteed by Campwork
@@ -374,15 +497,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                             {/* Client Info */}
                             <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl shadow-black/5 dark:border-zinc-800 dark:bg-zinc-950">
                                 <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-400">About the Client</h4>
-                                <div className="flex items-center gap-4">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                <Link href={`/profile/${job.client_id}`} className="group/client flex items-center gap-4">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary group-hover/client:bg-primary group-hover/client:text-white transition-colors">
                                         <User className="h-6 w-6" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="font-bold">{job.profiles?.full_name || 'Alumni Member'}</span>
+                                        <span className="font-bold group-hover/client:text-primary transition-colors">{job.profiles?.full_name || 'Alumni Member'}</span>
                                         <span className="text-xs text-zinc-500">{job.profiles?.university || 'Verified Campus User'}</span>
                                     </div>
-                                </div>
+                                </Link>
                                 <div className="mt-6 flex flex-col gap-4 border-t border-zinc-100 pt-6 dark:border-zinc-900">
                                     <div className="flex items-center justify-between text-sm">
                                         <span className="text-zinc-500">Member Since</span>
@@ -500,6 +623,74 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                     </form>
                                 </>
                             )}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Rating Modal */}
+            <AnimatePresence>
+                {showRatingModal && acceptedProposal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowRatingModal(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg overflow-hidden rounded-[2.5rem] border border-zinc-200 bg-white p-8 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+                        >
+                            <div className="flex flex-col items-center text-center gap-6">
+                                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <Star className="h-10 w-10 text-primary" />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h2 className="text-2xl font-black text-zinc-900 dark:text-white">Rate {acceptedProposal.profiles?.full_name}</h2>
+                                    <p className="text-zinc-500 text-sm">
+                                        How was your experience working with <span className="font-bold text-primary">{acceptedProposal.profiles?.full_name}</span>?
+                                    </p>
+                                </div>
+
+                                <form onSubmit={handleSubmitReview} className="w-full space-y-6">
+                                    <div className="flex justify-center gap-2">
+                                        {[1, 2, 3, 4, 5].map((num) => (
+                                            <button
+                                                key={num}
+                                                type="button"
+                                                onClick={() => setRating(num)}
+                                                className={`p-2 transition-all ${rating >= num ? 'text-primary' : 'text-zinc-200 dark:text-zinc-800 hover:text-primary/40'}`}
+                                            >
+                                                <Star className={`h-8 w-8 ${rating >= num ? 'fill-current' : ''}`} />
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="space-y-2 text-left">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Leave a comment</label>
+                                        <textarea
+                                            value={reviewComment}
+                                            onChange={(e) => setReviewComment(e.target.value)}
+                                            rows={4}
+                                            className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                                            placeholder="Write a brief review about the work..."
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingReview}
+                                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-white shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                                    >
+                                        {isSubmittingReview ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Rating"}
+                                    </button>
+                                </form>
+                            </div>
                         </motion.div>
                     </div>
                 )}

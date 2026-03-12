@@ -22,6 +22,7 @@ export type Profile = {
     role: 'student' | 'client' | 'admin';
     created_at: string;
     skills?: string[];
+    tagline?: string;
     social_links?: Record<string, string>;
 };
 
@@ -85,4 +86,15 @@ export type Message = {
     image_url?: string;
     is_read: boolean;
     created_at: string;
+};
+
+export type Review = {
+    id: string;
+    job_id?: string;
+    reviewer_id: string;
+    receiver_id: string;
+    rating: number;
+    comment?: string;
+    created_at: string;
+    reviewer?: Profile;
 };
