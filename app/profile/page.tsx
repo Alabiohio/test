@@ -42,7 +42,9 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [userJobs, setUserJobs] = useState<Job[]>([]);
     const [userProposals, setUserProposals] = useState<(Proposal & { jobs: Job })[]>([]);
-    const [userReviews, setUserReviews] = useState<(Review & { reviewer: Profile })[]>([]);
+    const [userReviews, setUserReviews] = useState<(
+        Review & { reviewer: Profile; jobs?: Pick<Job, "title"> | null }
+    )[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'reviews'>('overview');
 
