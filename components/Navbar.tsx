@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { User, PlusCircle, LogIn, Moon, Sun, Monitor, Menu, X, MessageSquare, ShoppingBag, Briefcase, Settings, LogOut, ChevronRight, Home } from "lucide-react";
+import { User, PlusCircle, LogIn, Moon, Sun, Monitor, Menu, X, MessageSquare, ShoppingBag, Briefcase, Settings, LogOut, ChevronRight, Home, Bell } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { useRouter, usePathname } from "next/navigation";
@@ -16,6 +16,7 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+    const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
     const [scrolled, setScrolled] = useState(false);
     const { theme, setTheme } = useTheme();
@@ -69,20 +70,44 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
 
         fetchUnreadCount();
 
-        const channel = supabase
+        const msgChannel = supabase
             .channel('navbar_messages_count')
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
                 table: 'messages'
             }, () => {
-                // Add a small delay to ensure the DB update has fully propagated
                 setTimeout(fetchUnreadCount, 500);
             })
             .subscribe();
 
+        const fetchNotificationCount = async () => {
+            const { count } = await supabase
+                .from('notifications')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('is_read', false);
+
+            setUnreadNotificationsCount(count || 0);
+        };
+
+        fetchNotificationCount();
+
+        const notifyChannel = supabase
+            .channel('navbar_notifications_count')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'notifications',
+                filter: `user_id=eq.${user.id}`
+            }, () => {
+                fetchNotificationCount();
+            })
+            .subscribe();
+
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(msgChannel);
+            supabase.removeChannel(notifyChannel);
         };
     }, [user]);
 
@@ -343,8 +368,8 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
                             initial={{ x: "100%", opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: "100%", opacity: 0 }}
-                            transition={{ type: "spring", damping: 30, stiffness: 250 }}
-                            className="fixed inset-y-0 right-0 z-[110] w-full max-w-sm bg-gradient-to-br from-white via-white to-zinc-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-black backdrop-blur-3xl shadow-2xl md:hidden overflow-hidden flex flex-col border-l-2 border-zinc-200/50 dark:border-zinc-800/50"
+                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                            className="fixed inset-y-0 right-0 z-[110] w-full max-w-sm bg-gradient-to-br from-white via-white to-zinc-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-black backdrop-blur-lg shadow-2xl md:hidden overflow-hidden flex flex-col border-l-2 border-zinc-200/50 dark:border-zinc-800/50"
                         >
                             {/* Header */}
                             <div className="relative flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-800 bg-gradient-to-br from-zinc-50/50 to-transparent dark:from-zinc-900/50">
@@ -368,13 +393,16 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
                                         { href: "/", label: "Home", icon: <Home className="w-5 h-5" /> },
                                         { href: "/jobs", label: "Find Jobs", icon: <Briefcase className="w-5 h-5" /> },
                                         { href: "/products", label: "Marketplace", icon: <ShoppingBag className="w-5 h-5" /> },
-                                        ...(user ? [{ href: "/messages", label: "Messages", icon: <MessageSquare className="w-5 h-5" />, badge: unreadMessagesCount }] : []),
+                                        ...(user ? [
+                                            { href: "/messages", label: "Messages", icon: <MessageSquare className="w-5 h-5" />, badge: unreadMessagesCount },
+                                            { href: "/notifications", label: "Notifications", icon: <Bell className="w-5 h-5" />, badge: unreadNotificationsCount }
+                                        ] : []),
                                     ].map((link: any, idx) => (
                                         <motion.div
                                             key={link.href}
                                             initial={{ opacity: 0, x: 20 }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.1 + idx * 0.06, type: "spring", stiffness: 200 }}
+                                            transition={{ delay: 0.1 + idx * 0.05, duration: 0.2, ease: "easeOut" }}
                                         >
                                             <Link
                                                 href={link.href}
@@ -407,7 +435,7 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
                                         <motion.div
                                             initial={{ opacity: 0, x: 20 }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.35, type: "spring", stiffness: 200 }}
+                                            transition={{ delay: 0.2, duration: 0.2, ease: "easeOut" }}
                                             className="mt-2 pt-4 border-t border-zinc-200 dark:border-zinc-800"
                                         >
                                             <Link
@@ -435,7 +463,7 @@ export function Navbar({ isTransparent = false }: { isTransparent?: boolean }) {
                                     <motion.div
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
+                                        transition={{ delay: 0.25, duration: 0.2, ease: "easeOut" }}
                                         className="mt-2"
                                     >
                                         <Link

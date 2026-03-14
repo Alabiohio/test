@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+
 import { Briefcase, Clock, MapPin, Tag } from "lucide-react";
 import type { Job } from "@/types";
 
@@ -10,11 +10,8 @@ interface JobCardProps {
 
 export function JobCard({ job }: JobCardProps) {
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -4 }}
-            className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all hover:shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        <div
+            className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
         >
             <div className="flex flex-col gap-4">
                 <div className="flex items-start justify-between">
@@ -74,6 +71,6 @@ export function JobCard({ job }: JobCardProps) {
 
             {/* Decorative gradient overlay */}
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-blue-600/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        </motion.div>
+        </div>
     );
 }

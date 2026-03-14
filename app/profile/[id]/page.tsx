@@ -38,7 +38,16 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     )[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'reviews'>('overview');
+    const [direction, setDirection] = useState(0);
     const [currentUser, setCurrentUser] = useState<any>(null);
+
+    const handleTabChange = (newTab: 'overview' | 'activity' | 'reviews') => {
+        const tabs: ('overview' | 'activity' | 'reviews')[] = ['overview', 'activity', 'reviews'];
+        const oldIndex = tabs.indexOf(activeTab);
+        const newIndex = tabs.indexOf(newTab);
+        setDirection(newIndex > oldIndex ? 50 : -50);
+        setActiveTab(newTab);
+    };
 
     useEffect(() => {
         async function fetchProfileData() {
@@ -313,39 +322,40 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                         </div>
 
                         {/* Tabs */}
-                        <div className="glass-card premium-shadow rounded-[2.5rem] p-8 border border-white/20 dark:border-white/10 min-h-[500px]">
-                            <div className="flex items-center gap-8 border-b border-zinc-200 dark:border-zinc-800 h-16">
+                        <div className="glass-card premium-shadow rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-8 border border-white/20 dark:border-white/10 min-h-[500px]">
+                            <div className="flex items-center gap-4 sm:gap-8 border-b border-zinc-200 dark:border-zinc-800 h-14 sm:h-16 overflow-x-auto scrollbar-hide w-full">
                                 <button
-                                    onClick={() => setActiveTab('overview')}
-                                    className={`h-full text-sm font-black uppercase tracking-widest transition-all relative px-2 ${activeTab === 'overview' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                    onClick={() => handleTabChange('overview')}
+                                    className={`h-full text-xs sm:text-sm font-black uppercase tracking-widest transition-all relative px-2 whitespace-nowrap shrink-0 ${activeTab === 'overview' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
                                 >
                                     Overview
                                     {activeTab === 'overview' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab('activity')}
-                                    className={`h-full text-sm font-black uppercase tracking-widest transition-all relative px-2 ${activeTab === 'activity' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                    onClick={() => handleTabChange('activity')}
+                                    className={`h-full text-xs sm:text-sm font-black uppercase tracking-widest transition-all relative px-2 whitespace-nowrap shrink-0 ${activeTab === 'activity' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
                                 >
                                     {profile.role === 'client' ? 'Gigs' : 'History'}
                                     {activeTab === 'activity' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab('reviews')}
-                                    className={`h-full text-sm font-black uppercase tracking-widest transition-all relative px-2 ${activeTab === 'reviews' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                    onClick={() => handleTabChange('reviews')}
+                                    className={`h-full text-xs sm:text-sm font-black uppercase tracking-widest transition-all relative px-2 whitespace-nowrap shrink-0 ${activeTab === 'reviews' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
                                 >
                                     Reviews ({userReviews.length})
                                     {activeTab === 'reviews' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
                                 </button>
                             </div>
 
-                            <div className="pt-8">
-                                <AnimatePresence mode="wait">
+                            <div className="pt-6 sm:pt-8">
+                                <AnimatePresence mode="wait" custom={direction}>
                                     {activeTab === 'overview' ? (
                                         <motion.div
                                             key="overview"
-                                            initial={{ opacity: 0, scale: 0.95 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            initial={{ opacity: 0, x: direction, scale: 0.95 }}
+                                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                                            exit={{ opacity: 0, x: -direction, scale: 0.95 }}
+                                            transition={{ duration: 0.3, ease: "easeInOut" }}
                                             className="flex flex-col gap-6"
                                         >
                                             <div className="prose prose-zinc dark:prose-invert max-w-none">
@@ -371,9 +381,10 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                                     ) : activeTab === 'activity' ? (
                                         <motion.div
                                             key="activity"
-                                            initial={{ opacity: 0, x: 20 }}
+                                            initial={{ opacity: 0, x: direction }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -20 }}
+                                            exit={{ opacity: 0, x: -direction }}
+                                            transition={{ duration: 0.3, ease: "easeInOut" }}
                                             className="flex flex-col gap-6"
                                         >
                                             {profile.role === 'client' ? (
@@ -382,16 +393,18 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                                                 ) : (
                                                     userJobs.map((job) => (
                                                         <Link key={job.id} href={`/jobs/${job.id}`}>
-                                                            <div className="rounded-3xl border border-zinc-200/50 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800/50 p-6 shadow-xl shadow-black/5 hover:border-primary/50 transition-all hover:-translate-y-1">
-                                                                <div className="flex items-start justify-between">
+                                                            <div className="rounded-[1.5rem] sm:rounded-3xl border border-zinc-200/50 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800/50 p-4 sm:p-6 shadow-xl shadow-black/5 hover:border-primary/50 transition-all hover:-translate-y-1">
+                                                                <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-0">
                                                                     <div className="flex flex-col gap-3">
-                                                                        <h4 className="text-lg font-bold group-hover:text-primary transition-colors">{job.title}</h4>
-                                                                        <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                        <h4 className="text-base sm:text-lg font-bold group-hover:text-primary transition-colors line-clamp-2">{job.title}</h4>
+                                                                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 text-[10px] font-black uppercase tracking-widest text-zinc-400">
                                                                             <span className="flex items-center gap-2"><MapPin className="h-3 w-3" /> {job.location || 'Remote'}</span>
-                                                                            <span className={`px-2 py-0.5 rounded-full border ${job.status === 'open' ? 'text-green-600 border-green-200 bg-green-50' : 'text-primary border-primary/20 bg-primary/5'}`}>{job.status}</span>
+                                                                            <span className={`px-2 py-0.5 rounded-full border max-w-max ${job.status === 'open' ? 'text-green-600 border-green-200 bg-green-50' : 'text-primary border-primary/20 bg-primary/5'}`}>{job.status}</span>
                                                                         </div>
                                                                     </div>
-                                                                    <span className="text-xl font-black text-primary">${job.budget}</span>
+                                                                    <div className="flex flex-row sm:flex-col items-center sm:items-end w-full sm:w-auto justify-between sm:justify-end pt-3 sm:pt-0 border-t sm:border-t-0 border-zinc-200/50 dark:border-zinc-800/50 sm:border-transparent mt-2 sm:mt-0">
+                                                                        <span className="text-xl font-black text-primary">${job.budget}</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </Link>
@@ -402,16 +415,18 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                                                     <div className="text-center py-12 text-zinc-500">No completed project history yet.</div>
                                                 ) : (
                                                     userProposals.map((proposal) => (
-                                                        <div key={proposal.id} className="rounded-3xl border border-zinc-200/50 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800/50 p-6">
-                                                            <div className="flex items-start justify-between">
+                                                        <div key={proposal.id} className="rounded-[1.5rem] sm:rounded-3xl border border-zinc-200/50 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800/50 p-4 sm:p-6 shadow-xl shadow-black/5">
+                                                            <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-0">
                                                                 <div className="flex flex-col gap-2">
-                                                                    <h4 className="text-lg font-bold">{proposal.jobs?.title}</h4>
+                                                                    <h4 className="text-base sm:text-lg font-bold line-clamp-2">{proposal.jobs?.title}</h4>
                                                                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400">
                                                                         <CheckCircle2 className="h-3 w-3 text-green-500" />
                                                                         Completed Project
                                                                     </div>
                                                                 </div>
-                                                                <span className="text-sm font-bold text-zinc-500">{new Date(proposal.created_at).toLocaleDateString()}</span>
+                                                                <div className="flex flex-row sm:flex-col items-center sm:items-end w-full sm:w-auto justify-between sm:justify-end pt-3 sm:pt-0 border-t sm:border-t-0 border-zinc-200/50 dark:border-zinc-800/50 sm:border-transparent mt-2 sm:mt-0">
+                                                                    <span className="text-sm font-bold text-zinc-500">{new Date(proposal.created_at).toLocaleDateString()}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     ))
@@ -421,19 +436,20 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                                     ) : (
                                         <motion.div
                                             key="reviews"
-                                            initial={{ opacity: 0, x: 20 }}
+                                            initial={{ opacity: 0, x: direction }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -20 }}
+                                            exit={{ opacity: 0, x: -direction }}
+                                            transition={{ duration: 0.3, ease: "easeInOut" }}
                                             className="flex flex-col gap-6"
                                         >
                                             {userReviews.length === 0 ? (
                                                 <div className="text-center py-12 text-zinc-500">No reviews yet.</div>
                                             ) : (
                                                 userReviews.map((review) => (
-                                                    <div key={review.id} className="glass-card rounded-3xl p-6 border border-zinc-200/50 dark:border-zinc-800/50 flex flex-col gap-4">
-                                                        <div className="flex items-center justify-between">
+                                                    <div key={review.id} className="glass-card premium-shadow rounded-[1.5rem] sm:rounded-3xl p-4 sm:p-6 border border-zinc-200/50 dark:border-zinc-800/50 flex flex-col gap-4">
+                                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
                                                             <Link href={`/profile/${review.reviewer_id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
                                                                     {review.reviewer?.avatar_url ? (
                                                                         <img src={getOptimizedImageUrl(review.reviewer.avatar_url, 100, 100)} className="h-full w-full object-cover" />
                                                                     ) : (
@@ -441,18 +457,18 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                                                                     )}
                                                                 </div>
                                                                 <div className="flex flex-col">
-                                                                    <span className="text-sm font-bold text-zinc-900 dark:text-white">{review.reviewer?.full_name || 'Anonymous User'}</span>
+                                                                    <span className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-1">{review.reviewer?.full_name || 'Anonymous User'}</span>
                                                                     <span className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">{new Date(review.created_at).toLocaleDateString()}</span>
                                                                 </div>
                                                             </Link>
-                                                            <div className="flex flex-col items-end gap-1">
+                                                            <div className="flex flex-row sm:flex-col items-center sm:items-end w-full sm:w-auto justify-between sm:justify-end gap-2 sm:gap-1 pt-3 sm:pt-0 border-t sm:border-t-0 border-zinc-200/50 dark:border-zinc-800/50 sm:border-transparent">
                                                                 <div className="flex gap-1">
                                                                     {[1, 2, 3, 4, 5].map((num) => (
-                                                                        <Star key={num} className={`h-4 w-4 ${review.rating >= num ? 'text-primary fill-current' : 'text-zinc-200 dark:text-zinc-800'}`} />
+                                                                        <Star key={num} className={`h-3 w-3 sm:h-4 sm:w-4 ${review.rating >= num ? 'text-primary fill-current' : 'text-zinc-200 dark:text-zinc-800'}`} />
                                                                     ))}
                                                                 </div>
                                                                 {review.jobs?.title && (
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-primary/60">{review.jobs.title}</span>
+                                                                    <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-primary/60 line-clamp-1 text-right max-w-[150px] sm:max-w-[200px]">{review.jobs.title}</span>
                                                                 )}
                                                             </div>
                                                         </div>

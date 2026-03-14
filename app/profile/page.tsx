@@ -47,6 +47,15 @@ export default function ProfilePage() {
     )[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'reviews'>('overview');
+    const [direction, setDirection] = useState(0);
+
+    const handleTabChange = (newTab: 'overview' | 'activity' | 'reviews') => {
+        const tabs: ('overview' | 'activity' | 'reviews')[] = ['overview', 'activity', 'reviews'];
+        const oldIndex = tabs.indexOf(activeTab);
+        const newIndex = tabs.indexOf(newTab);
+        setDirection(newIndex > oldIndex ? 50 : -50);
+        setActiveTab(newTab);
+    };
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -499,50 +508,53 @@ export default function ProfilePage() {
                         </div>
 
                         {/* Tabs & Activity */}
-                        <div className="glass-card premium-shadow rounded-[2.5rem] p-8 border border-white/20 dark:border-white/10 min-h-[500px]">
-                            <div className="flex items-center gap-8 border-b border-zinc-200 dark:border-zinc-800 h-16">
+                        <div className="glass-card premium-shadow rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-8 border border-white/20 dark:border-white/10 min-h-[500px]">
+                            <div className="flex items-center gap-4 sm:gap-8 border-b border-zinc-200 dark:border-zinc-800 h-14 sm:h-16 overflow-x-auto scrollbar-hide w-full">
                                 <button
-                                    onClick={() => setActiveTab('overview')}
-                                    className={`h-full text-sm font-black uppercase tracking-widest transition-all relative px-2 ${activeTab === 'overview' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                    onClick={() => handleTabChange('overview')}
+                                    className={`h-full text-xs sm:text-sm font-black uppercase tracking-widest transition-all relative px-2 whitespace-nowrap shrink-0 ${activeTab === 'overview' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
                                 >
                                     My Feed
                                     {activeTab === 'overview' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab('activity')}
-                                    className={`h-full text-sm font-black uppercase tracking-widest transition-all relative px-2 ${activeTab === 'activity' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                    onClick={() => handleTabChange('activity')}
+                                    className={`h-full text-xs sm:text-sm font-black uppercase tracking-widest transition-all relative px-2 whitespace-nowrap shrink-0 ${activeTab === 'activity' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
                                 >
                                     {profile.role === 'client' ? 'Gigs Posted' : 'Applications'}
                                     {activeTab === 'activity' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab('reviews')}
-                                    className={`h-full text-sm font-black uppercase tracking-widest transition-all relative px-2 ${activeTab === 'reviews' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                    onClick={() => handleTabChange('reviews')}
+                                    className={`h-full text-xs sm:text-sm font-black uppercase tracking-widest transition-all relative px-2 whitespace-nowrap shrink-0 ${activeTab === 'reviews' ? 'text-primary' : 'text-zinc-400 hover:text-zinc-600'}`}
                                 >
                                     Reviews ({userReviews.length})
                                     {activeTab === 'reviews' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
                                 </button>
                             </div>
 
-                            <div className="pt-8">
-                                <AnimatePresence mode="wait">
+                            <div className="pt-6 sm:pt-8">
+                                <AnimatePresence mode="wait" custom={direction}>
                                     {activeTab === 'overview' ? (
                                         <motion.div
                                             key="overview"
-                                            initial={{ opacity: 0, scale: 0.95 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            initial={{ opacity: 0, x: direction, scale: 0.95 }}
+                                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                                            exit={{ opacity: 0, x: -direction, scale: 0.95 }}
+                                            transition={{ duration: 0.3, ease: "easeInOut" }}
                                             className="flex flex-col gap-6"
                                         >
-                                            <div className="p-8 rounded-[2rem] bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 text-center flex flex-col items-center gap-4">
-                                                <div className="h-20 w-20 rounded-[1.5rem] bg-primary/5 flex items-center justify-center">
-                                                    <Clock className="h-10 w-10 text-primary opacity-20" />
+                                            <div className="p-6 sm:p-12 rounded-[1.5rem] sm:rounded-[2rem] bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 text-center flex flex-col items-center gap-4 sm:gap-6">
+                                                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-[1.2rem] sm:rounded-[1.5rem] bg-primary/5 flex items-center justify-center">
+                                                    <Clock className="h-8 w-8 sm:h-10 sm:w-10 text-primary opacity-20" />
                                                 </div>
-                                                <h4 className="text-xl font-bold text-zinc-900 dark:text-white">Recent Updates</h4>
-                                                <p className="text-zinc-500 text-sm max-w-sm">
-                                                    You don't have any recent notifications or status changes. Keep active to build your campus reputation!
-                                                </p>
-                                                <Link href="/jobs" className="mt-2 rounded-2xl bg-zinc-900 dark:bg-white px-8 py-3 text-sm font-bold text-white dark:text-black hover:scale-105 transition-transform active-scale">
+                                                <div className="space-y-2">
+                                                    <h4 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white">Recent Updates</h4>
+                                                    <p className="text-zinc-500 text-xs sm:text-sm max-w-[280px] sm:max-w-sm mx-auto">
+                                                        You don't have any recent notifications or status changes. Keep active to build your campus reputation!
+                                                    </p>
+                                                </div>
+                                                <Link href="/jobs" className="mt-2 rounded-2xl bg-zinc-900 dark:bg-white px-6 sm:px-8 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white dark:text-black hover:scale-105 transition-transform active-scale">
                                                     Explore Opportunities
                                                 </Link>
                                             </div>
@@ -550,9 +562,10 @@ export default function ProfilePage() {
                                     ) : activeTab === 'activity' ? (
                                         <motion.div
                                             key="activity"
-                                            initial={{ opacity: 0, x: 20 }}
+                                            initial={{ opacity: 0, x: direction }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -20 }}
+                                            exit={{ opacity: 0, x: -direction }}
+                                            transition={{ duration: 0.3, ease: "easeInOut" }}
                                             className="flex flex-col gap-6"
                                         >
                                             {profile.role === 'client' ? (
@@ -569,21 +582,21 @@ export default function ProfilePage() {
                                                         userJobs.map((job) => (
                                                             <div key={job.id} className="group relative">
                                                                 <Link href={`/jobs/${job.id}`}>
-                                                                    <div className="rounded-3xl border border-zinc-200/50 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800/50 p-6 shadow-xl shadow-black/5 hover:border-primary/50 transition-all group-hover:-translate-y-1">
-                                                                        <div className="flex items-start justify-between">
-                                                                            <div className="flex flex-col gap-3">
+                                                                    <div className="rounded-[1.5rem] sm:rounded-3xl border border-zinc-200/50 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800/50 p-4 sm:p-6 shadow-xl shadow-black/5 hover:border-primary/50 transition-all group-hover:-translate-y-1">
+                                                                        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-0">
+                                                                            <div className="flex flex-col gap-3 pr-10 sm:pr-0">
                                                                                 <div className="flex items-center gap-3">
-                                                                                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                                                                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                                                                                         <Briefcase className="h-4 w-4 text-primary" />
                                                                                     </div>
-                                                                                    <h4 className="text-lg font-bold group-hover:text-primary transition-colors">{job.title}</h4>
+                                                                                    <h4 className="text-base sm:text-lg font-bold group-hover:text-primary transition-colors line-clamp-2">{job.title}</h4>
                                                                                 </div>
-                                                                                <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                                <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 text-[10px] font-black uppercase tracking-widest text-zinc-400">
                                                                                     <span className="flex items-center gap-2"><Calendar className="h-3 w-3" /> {new Date(job.created_at).toLocaleDateString()}</span>
                                                                                     <span className="flex items-center gap-2"><MapPin className="h-3 w-3" /> {job.location || 'Remote'}</span>
                                                                                 </div>
                                                                             </div>
-                                                                            <div className="flex flex-col items-end gap-2 pr-12">
+                                                                            <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2 pr-0 sm:pr-12 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-200/50 dark:border-zinc-800/50 sm:border-transparent">
                                                                                 <span className="text-xl font-black text-primary">${job.budget}</span>
                                                                                 <span className={`rounded-full px-3 py-1 text-[8px] font-black uppercase tracking-[0.2em] border ${job.status === 'open' ? 'bg-green-100/50 text-green-700 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-primary/5 text-primary border-primary/20'
                                                                                     }`}>
@@ -599,7 +612,7 @@ export default function ProfilePage() {
                                                                         e.stopPropagation();
                                                                         handleDeleteJob(job.id);
                                                                     }}
-                                                                    className="absolute top-6 right-6 p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                                                                    className="absolute top-4 sm:top-6 right-4 sm:right-6 p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                                                                     title="Remove Gig"
                                                                 >
                                                                     <Trash2 className="h-5 w-5" />
@@ -621,21 +634,21 @@ export default function ProfilePage() {
                                                     ) : (
                                                         userProposals.map((proposal) => (
                                                             <Link key={proposal.id} href={`/jobs/${proposal.job_id}`}>
-                                                                <div className="group rounded-3xl border border-zinc-200/50 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800/50 p-6 shadow-xl shadow-black/5 hover:border-primary/50 transition-all hover:-translate-y-1">
-                                                                    <div className="flex items-start justify-between">
-                                                                        <div className="flex flex-col gap-3">
+                                                                <div className="group rounded-[1.5rem] sm:rounded-3xl border border-zinc-200/50 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800/50 p-4 sm:p-6 shadow-xl shadow-black/5 hover:border-primary/50 transition-all hover:-translate-y-1">
+                                                                    <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-0">
+                                                                        <div className="flex flex-col gap-3 w-full sm:w-auto">
                                                                             <div className="flex items-center gap-3">
-                                                                                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                                                                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                                                                                     <PlusCircle className="h-4 w-4 text-primary" />
                                                                                 </div>
-                                                                                <h4 className="text-lg font-bold group-hover:text-primary transition-colors">{proposal.jobs?.title}</h4>
+                                                                                <h4 className="text-base sm:text-lg font-bold group-hover:text-primary transition-colors line-clamp-2">{proposal.jobs?.title}</h4>
                                                                             </div>
-                                                                            <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 text-[10px] font-black uppercase tracking-widest text-zinc-400">
                                                                                 <span className="flex items-center gap-2"><Clock className="h-3 w-3" /> Submitted {new Date(proposal.created_at).toLocaleDateString()}</span>
                                                                                 <span className="flex items-center gap-2"><Briefcase className="h-3 w-3" /> {proposal.jobs?.category}</span>
                                                                             </div>
                                                                         </div>
-                                                                        <div className="flex flex-col items-end gap-2">
+                                                                        <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-zinc-200/50 dark:border-zinc-800/50 sm:border-transparent">
                                                                             <span className="text-xl font-black text-primary">${proposal.bid_amount}</span>
                                                                             <span className={`rounded-full px-3 py-1 text-[8px] font-black uppercase tracking-[0.2em] border ${proposal.status === 'accepted'
                                                                                 ? proposal.jobs?.status === 'completed'
@@ -660,7 +673,7 @@ export default function ProfilePage() {
                                                                                         setSelectedJobForRating(proposal.jobs as any);
                                                                                         setShowRatingModal(true);
                                                                                     }}
-                                                                                    className="mt-2 flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-primary hover:bg-primary transition-all hover:text-white"
+                                                                                    className="mt-0 sm:mt-2 flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-primary hover:bg-primary transition-all hover:text-white"
                                                                                 >
                                                                                     <Star className="h-2 w-2 fill-current" />
                                                                                     Rate Client
@@ -678,9 +691,10 @@ export default function ProfilePage() {
                                     ) : (
                                         <motion.div
                                             key="reviews"
-                                            initial={{ opacity: 0, x: 20 }}
+                                            initial={{ opacity: 0, x: direction }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -20 }}
+                                            exit={{ opacity: 0, x: -direction }}
+                                            transition={{ duration: 0.3, ease: "easeInOut" }}
                                             className="flex flex-col gap-6"
                                         >
                                             {userReviews.length === 0 ? (
@@ -691,10 +705,10 @@ export default function ProfilePage() {
                                                 </div>
                                             ) : (
                                                 userReviews.map((review) => (
-                                                    <div key={review.id} className="glass-card premium-shadow rounded-3xl p-6 border border-zinc-200/50 dark:border-zinc-800/50 flex flex-col gap-4">
-                                                        <div className="flex items-center justify-between">
+                                                    <div key={review.id} className="glass-card premium-shadow rounded-[1.5rem] sm:rounded-3xl p-4 sm:p-6 border border-zinc-200/50 dark:border-zinc-800/50 flex flex-col gap-4">
+                                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
                                                             <Link href={`/profile/${review.reviewer_id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
                                                                     {review.reviewer?.avatar_url ? (
                                                                         <img src={getOptimizedImageUrl(review.reviewer.avatar_url, 100, 100)} className="h-full w-full object-cover" />
                                                                     ) : (
@@ -702,18 +716,18 @@ export default function ProfilePage() {
                                                                     )}
                                                                 </div>
                                                                 <div className="flex flex-col">
-                                                                    <span className="text-sm font-bold text-zinc-900 dark:text-white">{review.reviewer?.full_name || 'Anonymous User'}</span>
+                                                                    <span className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-1">{review.reviewer?.full_name || 'Anonymous User'}</span>
                                                                     <span className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">{new Date(review.created_at).toLocaleDateString()}</span>
                                                                 </div>
                                                             </Link>
-                                                            <div className="flex flex-col items-end gap-1">
+                                                            <div className="flex flex-row sm:flex-col items-center sm:items-end w-full sm:w-auto justify-between sm:justify-end gap-2 sm:gap-1 pt-3 sm:pt-0 border-t sm:border-t-0 border-zinc-200/50 dark:border-zinc-800/50 sm:border-transparent">
                                                                 <div className="flex gap-1">
                                                                     {[1, 2, 3, 4, 5].map((num) => (
-                                                                        <Star key={num} className={`h-4 w-4 ${review.rating >= num ? 'text-primary fill-current' : 'text-zinc-200 dark:text-zinc-800'}`} />
+                                                                        <Star key={num} className={`h-3 w-3 sm:h-4 sm:w-4 ${review.rating >= num ? 'text-primary fill-current' : 'text-zinc-200 dark:text-zinc-800'}`} />
                                                                     ))}
                                                                 </div>
                                                                 {review.jobs?.title && (
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-primary/60">{review.jobs.title}</span>
+                                                                    <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-primary/60 line-clamp-1 text-right max-w-[150px] sm:max-w-[200px]">{review.jobs.title}</span>
                                                                 )}
                                                             </div>
                                                         </div>

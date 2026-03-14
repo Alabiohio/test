@@ -64,7 +64,7 @@ export function NotificationListener() {
                     // Logic: show toast if NOT on messages page
                     if (!isMessagesPage) {
                         toast.custom((t) => (
-                            <div className="flex items-center gap-4 bg-white dark:bg-zinc-950 p-4 rounded-[1.5rem] shadow-2xl border border-zinc-200 dark:border-zinc-800 w-full min-w-[350px]">
+                            <div className="flex items-center gap-4 bg-white dark:bg-zinc-950 p-4 rounded-[1.5rem] shadow-2xl border border-zinc-200 dark:border-zinc-800 w-[calc(100vw-2rem)] sm:w-[400px]">
                                 <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
                                     <MessageSquare className="h-6 w-6" />
                                 </div>

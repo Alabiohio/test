@@ -35,8 +35,8 @@ export default function Home() {
     <div className="relative flex min-h-screen flex-col overflow-hidden">
       {/* Background decoration */}
       <div className="absolute top-0 left-0 -z-10 h-full w-full overflow-hidden">
-        <div className="absolute -top-[10%] -left-[10%] h-[50%] w-[50%] rounded-full bg-primary/20 blur-[120px]" />
-        <div className="absolute top-[20%] -right-[10%] h-[60%] w-[50%] rounded-full bg-primary/10 blur-[120px]" />
+        <div className="absolute -top-[10%] -left-[10%] h-[50%] w-[50%] rounded-full bg-primary/20 blur-[60px]" />
+        <div className="absolute top-[20%] -right-[10%] h-[60%] w-[50%] rounded-full bg-primary/10 blur-[60px]" />
       </div>
 
       <Navbar isTransparent />
@@ -148,7 +148,7 @@ export default function Home() {
 
       {/* Marketplace Teaser Section */}
       <section className="w-full px-8 sm:px-16 py-24 overflow-hidden relative">
-        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1/3 aspect-square bg-primary/5 blur-[120px] -z-10 rounded-full" />
+        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1/3 aspect-square bg-primary/5 blur-[60px] -z-10 rounded-full" />
 
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <motion.div

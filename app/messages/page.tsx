@@ -30,6 +30,24 @@ import { uploadToCloudinary, getOptimizedImageUrl } from "@/lib/cloudinary";
 
 import { toast } from "sonner";
 
+function groupMessagesByDate(messages: Message[]) {
+    const groups: { [key: string]: Message[] } = {};
+    messages.forEach(msg => {
+        const date = new Date(msg.created_at).toLocaleDateString();
+        if (!groups[date]) groups[date] = [];
+        groups[date].push(msg);
+    });
+    return groups;
+}
+
+function getDisplayDate(dateStr: string) {
+    const today = new Date().toLocaleDateString();
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
+    if (dateStr === today) return "Today";
+    if (dateStr === yesterday) return "Yesterday";
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
 function MessagesContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -47,6 +65,7 @@ function MessagesContent() {
     const [uploadingImage, setUploadingImage] = useState(false);
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,8 +109,8 @@ function MessagesContent() {
                     .from('conversations')
                     .select(`
                         *,
-                        p1:participant_1(full_name, avatar_url, university),
-                        p2:participant_2(full_name, avatar_url, university),
+                        p1:participant_1(id, full_name, avatar_url, university),
+                        p2:participant_2(id, full_name, avatar_url, university),
                         products(title, price, image_url),
                         jobs(title, budget)
                     `)
@@ -206,8 +225,8 @@ function MessagesContent() {
                             })
                             .select(`
                                 *,
-                                p1:participant_1(full_name, avatar_url, university),
-                                p2:participant_2(full_name, avatar_url, university),
+                                p1:participant_1(id, full_name, avatar_url, university),
+                                p2:participant_2(id, full_name, avatar_url, university),
                                 products(title, price, image_url),
                                 jobs(title, budget)
                             `)
@@ -265,8 +284,8 @@ function MessagesContent() {
                 .from('conversations')
                 .select(`
                     *,
-                    p1:participant_1(full_name, avatar_url, university),
-                    p2:participant_2(full_name, avatar_url, university),
+                    p1:participant_1(id, full_name, avatar_url, university),
+                    p2:participant_2(id, full_name, avatar_url, university),
                     products(title, price, image_url),
                     jobs(title, budget)
                 `)
@@ -615,13 +634,13 @@ function MessagesContent() {
     if (loading) return <div className="min-h-screen bg-zinc-50 dark:bg-black"><Navbar /><Loading text="Loading your messages..." /></div>;
 
     return (
-        <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 flex flex-col">
+        <div className="h-dvh bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 flex flex-col overflow-hidden fixed inset-0">
             <Navbar />
 
-            <main className="flex-1 max-w-7xl w-full mx-auto px-4 pt-24 pb-8 flex gap-6 h-[calc(100vh-100px)]">
+            <main className={`flex-1 max-w-7xl w-full mx-auto flex gap-6 overflow-hidden pt-[72px] md:pt-24 ${selectedConversation ? 'px-0 md:px-4 pb-0 md:pb-8' : 'px-4 pb-8'}`}>
 
                 {/* Conversations Sidebar */}
-                <div className={`w-full md:w-80 flex-shrink-0 flex flex-col bg-white dark:bg-zinc-950 rounded-[2rem] border border-zinc-200 dark:border-zinc-800 overflow-hidden ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+                <div className={`w-full md:w-80 flex-shrink-0 flex flex-col bg-white dark:bg-zinc-950 rounded-[2rem] overflow-hidden ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-6 border-b border-zinc-100 dark:border-zinc-900">
                         <h2 className="text-xl font-black tracking-tight mb-4">Messages</h2>
                         <div className="relative">
@@ -643,44 +662,43 @@ function MessagesContent() {
                             conversations.map((conv) => (
                                 <button
                                     key={conv.id}
-                                    onClick={() => {
-                                        setSelectedConversation(conv);
-                                    }}
-                                    className={`w-full p-4 flex gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors text-left border-b border-zinc-50 dark:border-zinc-900 ${selectedConversation?.id === conv.id ? 'bg-zinc-50 dark:bg-zinc-900' : ''}`}
+                                    onClick={() => setSelectedConversation(conv)}
+                                    className={`w-full p-4 flex gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-all text-left relative group ${selectedConversation?.id === conv.id ? 'bg-zinc-50 dark:bg-zinc-900/50' : ''}`}
                                 >
-                                    <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 relative">
-                                        <User className="h-6 w-6" />
-                                        {/* Unread badge - WhatsApp style */}
-                                        {conv.unread_count !== undefined && conv.unread_count > 0 ? (
-                                            <motion.div
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                                className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-primary flex items-center justify-center"
-                                            >
-                                                <span className="text-[10px] font-black text-white">
-                                                    {conv.unread_count > 99 ? '99+' : conv.unread_count}
-                                                </span>
-                                            </motion.div>
-                                        ) : null}
+                                    {selectedConversation?.id === conv.id && (
+                                        <motion.div layoutId="active-nav" className="absolute left-0 top-2 bottom-2 w-1 bg-primary rounded-r-full" />
+                                    )}
+
+                                    <div className="h-14 w-14 rounded-2xl bg-zinc-100 dark:bg-zinc-900 overflow-hidden flex-shrink-0 relative border border-zinc-200/50 dark:border-zinc-800/50">
+                                        {conv.other_profile?.avatar_url ? (
+                                            <img src={conv.other_profile.avatar_url} className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="h-full w-full flex items-center justify-center bg-primary/10 text-primary font-black text-xl">
+                                                {conv.other_profile?.full_name?.charAt(0) || 'U'}
+                                            </div>
+                                        )}
+                                        {/* Unread badge */}
+                                        {conv.unread_count !== undefined && conv.unread_count > 0 && (
+                                            <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary border-4 border-white dark:border-zinc-950 flex items-center justify-center shadow-lg" />
+                                        )}
                                     </div>
+
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className={`font-bold text-sm truncate ${conv.unread_count && conv.unread_count > 0 ? 'text-zinc-900 dark:text-white' : ''}`}>
+                                        <div className="flex justify-between items-start mb-0.5">
+                                            <span className={`font-black text-sm truncate leading-tight ${conv.unread_count && conv.unread_count > 0 ? 'text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>
                                                 {conv.other_profile?.full_name || 'User'}
                                             </span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-zinc-400">{new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                            </div>
+                                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter pt-0.5">
+                                                {new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
                                         </div>
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className={`text-xs truncate flex-1 ${conv.is_typing ? 'text-primary font-bold italic' : conv.unread_count && conv.unread_count > 0 ? 'text-zinc-900 dark:text-white font-semibold' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                                                {conv.is_typing ? 'typing...' : (conv.last_message || 'Start a conversation')}
-                                            </p>
-                                        </div>
+                                        <p className={`text-xs truncate mb-1.5 ${conv.is_typing ? 'text-primary font-bold italic' : conv.unread_count && conv.unread_count > 0 ? 'text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 dark:text-zinc-500'}`}>
+                                            {conv.is_typing ? 'typing...' : (conv.last_message || 'Start a conversation')}
+                                        </p>
                                         {(conv.products || conv.jobs) && (
-                                            <div className="mt-2 flex items-center gap-1.5 py-1 px-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 w-fit">
+                                            <div className="flex items-center gap-1.5 py-1 px-2 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 w-fit">
                                                 {conv.products ? <ShoppingBag className="h-3 w-3 text-primary" /> : <Briefcase className="h-3 w-3 text-primary" />}
-                                                <span className="text-[10px] font-bold text-zinc-600 dark:text-zinc-300 truncate max-w-[120px]">
+                                                <span className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest truncate max-w-[120px]">
                                                     {conv.products?.title || conv.jobs?.title}
                                                 </span>
                                             </div>
@@ -693,110 +711,229 @@ function MessagesContent() {
                 </div>
 
                 {/* Chat Area */}
-                <div className={`flex-1 flex flex-col bg-white dark:bg-zinc-950 rounded-[2rem] border border-zinc-200 dark:border-zinc-800 overflow-hidden ${!selectedConversation ? 'hidden md:flex items-center justify-center' : 'flex'}`}>
+                <div className={`flex-1 flex flex-col bg-white dark:bg-zinc-950 md:rounded-[2rem] overflow-hidden ${!selectedConversation ? 'hidden md:flex items-center justify-center' : 'flex'}`}>
                     {selectedConversation ? (
                         <>
                             {/* Chat Header */}
-                            <div className="p-4 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <button onClick={() => setSelectedConversation(null)} className="md:hidden p-2 text-zinc-500">
+                            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 flex items-center justify-between z-10">
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setSelectedConversation(null)}
+                                        className="md:hidden p-2 -ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+                                    >
                                         <ArrowLeft className="h-5 w-5" />
                                     </button>
-                                    <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                                        <User className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-sm">{selectedConversation.other_profile?.full_name || 'User'}</h3>
-                                        <span className="text-[10px] text-zinc-400">{selectedConversation.other_profile?.university}</span>
-                                    </div>
+                                    <Link
+                                        href={`/profile/${selectedConversation.other_profile?.id}`}
+                                        className="flex items-center gap-4 hover:opacity-80 transition-opacity group"
+                                    >
+                                        <div className="h-11 w-11 rounded-2xl bg-zinc-100 dark:bg-zinc-900 overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 group-hover:border-primary/30 transition-colors">
+                                            {selectedConversation.other_profile?.avatar_url ? (
+                                                <img src={selectedConversation.other_profile.avatar_url} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center bg-primary/10 text-primary font-black">
+                                                    {selectedConversation.other_profile?.full_name?.charAt(0) || 'U'}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-black text-[15px] leading-tight text-zinc-900 dark:text-white group-hover:text-primary transition-colors">
+                                                {selectedConversation.other_profile?.full_name || 'User'}
+                                            </h3>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-zinc-400 mt-0.5 uppercase tracking-widest leading-none">
+                                                    {selectedConversation.other_profile?.university}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </Link>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    {selectedConversation.products && (
-                                        <Link href={`/products/${selectedConversation.product_id}`} className="hidden sm:flex items-center gap-2 py-1.5 px-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 hover:border-primary transition-colors">
-                                            <img src={selectedConversation.products.image_url} className="h-6 w-6 rounded-md object-cover" />
+
+                                <div className="flex items-center gap-4">
+                                    {(selectedConversation.products || selectedConversation.jobs) && (
+                                        <Link
+                                            href={selectedConversation.products ? `/products/${selectedConversation.product_id}` : `/jobs/${selectedConversation.job_id}`}
+                                            className="hidden sm:flex items-center gap-3 py-2 px-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50 hover:border-primary/50 transition-all group"
+                                        >
+                                            {selectedConversation.products?.image_url && (
+                                                <img src={selectedConversation.products.image_url} className="h-8 w-8 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform" />
+                                            )}
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] font-bold truncate max-w-[100px]">{selectedConversation.products.title}</span>
-                                                <span className="text-[8px] text-primary font-black">${selectedConversation.products.price}</span>
+                                                <span className="text-[10px] font-black text-zinc-900 dark:text-zinc-100 truncate max-w-[120px] uppercase tracking-wider">
+                                                    {selectedConversation.products?.title || selectedConversation.jobs?.title}
+                                                </span>
+                                                <span className="text-[9px] text-primary font-black">
+                                                    {selectedConversation.products ? `$${selectedConversation.products.price}` : `$${selectedConversation.jobs?.budget}`}
+                                                </span>
                                             </div>
                                         </Link>
                                     )}
+
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+                                            className="p-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors text-zinc-400 active:scale-95"
+                                        >
+                                            <MoreVertical className="h-5 w-5" />
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {isHeaderMenuOpen && (
+                                                <>
+                                                    <div
+                                                        className="fixed inset-0 z-10"
+                                                        onClick={() => setIsHeaderMenuOpen(false)}
+                                                    />
+                                                    <motion.div
+                                                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                        className="absolute right-0 mt-2 w-56 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden z-20"
+                                                    >
+                                                        <div className="p-2 space-y-1">
+                                                            <Link
+                                                                href={`/profile/${selectedConversation.other_profile?.id}`}
+                                                                className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+                                                            >
+                                                                <User className="h-4 w-4" />
+                                                                View Profile
+                                                            </Link>
+                                                            <button
+                                                                onClick={() => {
+                                                                    toast.info("Reporting feature coming soon");
+                                                                    setIsHeaderMenuOpen(false);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+                                                            >
+                                                                <X className="h-4 w-4 text-rose-500" />
+                                                                Report / Block
+                                                            </button>
+                                                            <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1" />
+                                                            <button
+                                                                onClick={() => {
+                                                                    setIsHeaderMenuOpen(false);
+                                                                    handleDeleteConversation(selectedConversation.id);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors"
+                                                            >
+                                                                <X className="h-4 w-4" />
+                                                                Delete Conversation
+                                                            </button>
+                                                        </div>
+                                                    </motion.div>
+                                                </>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Messages Scroll Area */}
-                            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
-                                {messages.map((msg, i) => {
-                                    const isMe = currentUser && msg.sender_id === currentUser.id;
-                                    return (
-                                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                            <div className={`max-w-[75%] rounded-3xl overflow-hidden shadow-lg ${isMe ? 'bg-primary text-white rounded-tr-none shadow-primary/10' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 rounded-tl-none'}`}>
-                                                {msg.image_url && (
-                                                    <div className="relative aspect-auto max-h-64 overflow-hidden bg-zinc-200 dark:bg-zinc-800">
-                                                        <img
-                                                            src={getOptimizedImageUrl(msg.image_url, 600)}
-                                                            alt="Shared image"
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    </div>
-                                                )}
-                                                <div className="px-5 py-3 text-sm">
-                                                    {msg.content && <p>{msg.content}</p>}
-                                                    <div className={`flex items-center gap-1 mt-1 justify-end ${isMe ? 'text-white/60' : 'text-zinc-400'}`}>
-                                                        <span className="text-[8px]">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                        {isMe && (
-                                                            <div className="flex ml-1">
-                                                                {msg.is_read ? (
-                                                                    <CheckCheck className="h-3 w-3 text-white" />
-                                                                ) : (
-                                                                    <Check className="h-3 w-3" />
+                            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 bg-zinc-50/50 dark:bg-zinc-900/20">
+                                {Object.entries(groupMessagesByDate(messages)).map(([date, group]) => (
+                                    <div key={date} className="space-y-6">
+                                        <div className="flex items-center gap-4 py-2">
+                                            <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+                                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">{getDisplayDate(date)}</span>
+                                            <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+                                        </div>
+
+                                        {group.map((msg, i) => {
+                                            const isMe = currentUser && msg.sender_id === currentUser.id;
+                                            const nextMsg = group[i + 1];
+                                            const isLastInBlock = !nextMsg || nextMsg.sender_id !== msg.sender_id;
+
+                                            return (
+                                                <motion.div
+                                                    layout
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    key={msg.id}
+                                                    className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                                                >
+                                                    <div className={`max-w-[85%] sm:max-w-[70%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                                        <div className={`relative overflow-hidden shadow-sm transition-all ${isMe
+                                                            ? 'bg-primary text-white rounded-[1.5rem] rounded-tr-[0.3rem]'
+                                                            : 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-[1.5rem] rounded-tl-[0.3rem] border border-zinc-200 dark:border-zinc-800'
+                                                            }`}>
+                                                            {msg.image_url && (
+                                                                <div className="relative aspect-auto max-h-80 overflow-hidden bg-zinc-200 dark:bg-zinc-950">
+                                                                    <img
+                                                                        src={getOptimizedImageUrl(msg.image_url, 800)}
+                                                                        alt="Shared image"
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                            <div className="px-5 py-3.5 text-[15px] leading-relaxed">
+                                                                {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+                                                            </div>
+                                                        </div>
+
+                                                        {isLastInBlock && (
+                                                            <div className={`flex items-center gap-1.5 mt-2 transition-opacity duration-300 ${isMe ? 'flex-row-reverse pl-4' : 'flex-row pr-4'}`}>
+                                                                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
+                                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                                {isMe && (
+                                                                    <div className="flex items-center gap-0.5">
+                                                                        {msg.is_read ? (
+                                                                            <CheckCheck className="h-3 w-3 text-primary" />
+                                                                        ) : (
+                                                                            <Check className="h-3 w-3 text-zinc-300" />
+                                                                        )}
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                         )}
                                                     </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {isOtherTyping && (
-                                    <div className="flex justify-start">
-                                        <div className="bg-zinc-100 dark:bg-zinc-900 text-zinc-500 rounded-3xl px-5 py-2 text-xs italic animate-pulse">
-                                            {selectedConversation.other_profile?.full_name || 'Someone'} is typing...
-                                        </div>
+                                                </motion.div>
+                                            );
+                                        })}
                                     </div>
+                                ))}
+                                {isOtherTyping && (
+                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl rounded-tl-none px-4 py-3 flex gap-1">
+                                            <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                            <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                            <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                        </div>
+                                    </motion.div>
                                 )}
                                 <div ref={messagesEndRef} />
                             </div>
 
                             {/* Input Area */}
-                            <div className="p-6 border-t border-zinc-100 dark:border-zinc-900">
+                            <div className="px-4 py-4 md:px-6 md:py-6 border-t border-zinc-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 flex-shrink-0">
                                 <AnimatePresence>
                                     {imagePreview && (
                                         <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: 10 }}
-                                            className="mb-4 relative h-32 w-32 rounded-2xl overflow-hidden border-2 border-primary"
+                                            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                            className="mb-4 relative h-32 w-32 rounded-[2rem] overflow-hidden border-4 border-primary/20 shadow-2xl shadow-primary/10 group"
                                         >
                                             <img src={imagePreview} className="h-full w-full object-cover" />
                                             <button
                                                 onClick={() => { setSelectedImage(null); setImagePreview(null); }}
-                                                className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                                                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
                                             >
-                                                <X className="h-4 w-4" />
+                                                <X className="h-8 w-8" />
                                             </button>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                                <form onSubmit={handleSendMessage} className="flex gap-3 items-end">
-                                    <div className="flex-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl px-2 py-2 flex items-end gap-2 ring-primary/20 focus-within:ring-4 transition-all">
+
+                                <form onSubmit={handleSendMessage} className="flex gap-3 items-end max-w-5xl mx-auto">
+                                    <div className="flex-1 bg-zinc-100 dark:bg-zinc-900/50 rounded-[1.5rem] px-2 py-1.5 flex items-end gap-2 ring-primary/10 focus-within:ring-4 transition-all border border-transparent focus-within:border-primary/20 border-zinc-200/50 dark:border-zinc-800/50">
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={uploadingImage}
-                                            className="h-10 w-10 rounded-xl bg-white dark:bg-zinc-800 text-zinc-500 flex items-center justify-center hover:text-primary transition-colors flex-shrink-0"
+                                            className="h-9 w-9 rounded-full bg-white dark:bg-zinc-800 text-zinc-500 flex items-center justify-center hover:text-primary hover:scale-105 transition-all flex-shrink-0 shadow-sm border border-zinc-200/50 dark:border-zinc-800/50"
                                         >
-                                            {uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
+                                            {uploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
                                         </button>
                                         <input
                                             type="file"
@@ -811,6 +948,9 @@ function MessagesContent() {
                                             onChange={(e) => {
                                                 setNewMessage(e.target.value);
                                                 handleTyping();
+                                                // Auto-resize textarea
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
                                             }}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -818,16 +958,16 @@ function MessagesContent() {
                                                     handleSendMessage(e as any);
                                                 }
                                             }}
-                                            placeholder="Type a message..."
-                                            className="flex-1 bg-transparent border-none rounded-xl px-2 py-2 text-sm outline-none resize-none max-h-32"
+                                            placeholder="Message..."
+                                            className="flex-1 bg-transparent border-none rounded-xl px-2 py-2 text-sm outline-none resize-none max-h-32 font-medium placeholder:text-zinc-400"
                                         />
                                     </div>
                                     <button
                                         type="submit"
                                         disabled={sending || (!newMessage.trim() && !selectedImage)}
-                                        className="h-14 w-14 rounded-2xl bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-all shadow-xl shadow-primary/10 disabled:opacity-50 flex-shrink-0"
+                                        className="h-11 w-11 rounded-full bg-primary text-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:grayscale disabled:opacity-30 flex-shrink-0"
                                     >
-                                        <Send className="h-6 w-6" />
+                                        <Send className="h-5 w-5" />
                                     </button>
                                 </form>
                             </div>
