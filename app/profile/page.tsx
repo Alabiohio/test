@@ -398,10 +398,24 @@ export default function ProfilePage() {
                                 )}
 
                                 <div className="w-full flex flex-col gap-3 pt-4">
-                                    <button className="flex items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 text-sm font-bold text-white hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 group/btn">
+                                    <button
+                                        onClick={() => setIsEditModalOpen(true)}
+                                        className="flex items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 text-sm font-bold text-white hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 group/btn"
+                                    >
                                         <Settings className="h-5 w-5 group-hover:rotate-90 transition-transform duration-500" />
                                         Account Settings
                                     </button>
+
+                                    {profile.role === 'student' && (
+                                        <Link
+                                            href="/profile/payout-settings"
+                                            className="flex items-center justify-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-6 py-4 text-sm font-bold text-primary hover:bg-primary/10 transition-all shadow-lg active-scale"
+                                        >
+                                            <CreditCard className="h-5 w-5" />
+                                            Payout Settings
+                                        </Link>
+                                    )}
+
                                     <button
                                         onClick={handleSignOut}
                                         className="flex items-center justify-center gap-3 rounded-2xl border border-zinc-200 px-6 py-4 text-sm font-bold text-zinc-600 hover:bg-red-50 hover:text-red-600 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-red-900/20 transition-all hover:border-red-200"
@@ -494,7 +508,7 @@ export default function ProfilePage() {
                                 {
                                     label: profile.role === 'client' ? 'Active Gigs' : 'Applications',
                                     value: profile.role === 'client'
-                                        ? userJobs.filter(j => j.status === 'open' || j.status === 'in-progress').length.toString()
+                                        ? userJobs.filter(j => j.status === 'open' || j.status === 'in_progress').length.toString()
                                         : userProposals.length.toString(),
                                     icon: <Clock className="h-5 w-5" />
                                 },

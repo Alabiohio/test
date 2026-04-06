@@ -22,7 +22,7 @@ export function JobCard({ job }: JobCardProps) {
                             </span>
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${job.status === 'open'
                                 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                : job.status === 'in-progress'
+                                : job.status === 'in_progress'
                                     ? 'bg-primary/10 text-primary'
                                     : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
                                 }`}>

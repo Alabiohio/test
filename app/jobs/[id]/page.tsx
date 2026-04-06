@@ -213,23 +213,71 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     };
 
     const handleCompleteJob = async () => {
-        if (!confirm("Are you sure this job is completed? This will allow you to rate the student.")) return;
+        if (!confirm("Are you sure this work is satisfactory? This will approve the work and release funds to the student.")) return;
 
         setSubmitting(true);
         try {
-            const { error: updateError } = await supabase
-                .from('jobs')
-                .update({ status: 'completed' })
-                .eq('id', id);
+            // Find orderId for this job - we know there's one if it's hired
+            const { data: order } = await supabase
+                .from('orders')
+                .select('id')
+                .eq('job_id', id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
 
-            if (updateError) throw updateError;
+            if (!order) throw new Error("No active order found for this gig.");
+
+            const response = await fetch('/api/orders/approve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.id }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Failed to approve work");
 
             setJob(prev => prev ? { ...prev, status: 'completed' } : null);
             setShowRatingModal(true);
-            toast.success("Gig marked as completed!");
+            toast.success("Work approved and funds released!");
         } catch (err: any) {
-            console.error("Error completing job:", err);
-            toast.error(err.message || "Failed to complete the gig.");
+            console.error("Error approving job:", err);
+            toast.error(err.message || "Failed to approve the work.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleSubmitWork = async () => {
+        if (!confirm("Are you ready to submit your work for review? The client will be notified to approve and release your payment.")) return;
+
+        setSubmitting(true);
+        try {
+            const { data: order } = await supabase
+                .from('orders')
+                .select('id')
+                .eq('job_id', id)
+                .eq('freelancer_id', currentUser.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (!order) throw new Error("No active order found for your application.");
+
+            const response = await fetch('/api/orders/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.id }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Failed to submit work");
+
+            setJob(prev => prev ? { ...prev, status: 'submitted' } : null);
+            toast.success("Work submitted successfully! Client has been notified.");
+        } catch (err: any) {
+            console.error("Error submitting work:", err);
+            toast.error(err.message || "Failed to submit work.");
         } finally {
             setSubmitting(false);
         }
@@ -424,9 +472,31 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                             className="sticky top-24 flex flex-col gap-6"
                         >
                             {/* Apply Card */}
-                            <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl shadow-black/5 dark:border-zinc-800 dark:bg-zinc-950">
+                             <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl shadow-black/5 dark:border-zinc-800 dark:bg-zinc-950">
                                 {hasApplied ? (
-                                    acceptedProposal?.freelancer_id === currentUser?.id ? null : (
+                                    acceptedProposal?.freelancer_id === currentUser?.id ? (
+                                        <div className="flex flex-col gap-4">
+                                            {job.status === 'in_progress' && (
+                                                <button
+                                                    onClick={handleSubmitWork}
+                                                    disabled={submitting}
+                                                    className="w-full rounded-2xl bg-primary py-4 text-center font-bold text-white hover:bg-primary/90 transition-all shadow-lg flex items-center justify-center gap-2"
+                                                >
+                                                    {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                                                    Submit Work
+                                                </button>
+                                            )}
+                                            {job.status === 'submitted' && (
+                                                <div className="flex flex-col items-center gap-2 rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-900/50">
+                                                    <Clock className="h-6 w-6 text-primary" />
+                                                    <span className="font-bold text-zinc-700 dark:text-zinc-300">Awaiting Approval</span>
+                                                    <p className="text-center text-[10px] text-zinc-400">
+                                                        You've submitted your work. Your payment will be released once the client approves.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
                                         <div className="flex flex-col items-center gap-3 rounded-2xl bg-green-50 p-4 dark:bg-green-900/20">
                                             <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
                                             <span className="font-bold text-green-700 dark:text-green-300">Application Sent</span>
@@ -444,14 +514,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                         >
                                             View Proposals
                                         </button>
-                                        {job.status === 'in-progress' && (
+                                        {(job.status === 'in_progress' || job.status === 'submitted') && (
                                             <button
                                                 onClick={handleCompleteJob}
-                                                disabled={submitting}
-                                                className="w-full rounded-xl bg-green-600 py-2 text-sm font-bold text-white hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                                                disabled={submitting || job.status === 'in_progress'}
+                                                className={`w-full rounded-xl py-2 text-sm font-bold text-white transition-all flex items-center justify-center gap-2 ${job.status === 'in_progress' ? 'bg-zinc-400 cursor-not-allowed opacity-50' : 'bg-green-600 hover:bg-green-700'}`}
                                             >
                                                 <CheckCircle2 className="h-4 w-4" />
-                                                Mark as Completed
+                                                {job.status === 'in_progress' ? 'Hired - Awaiting Submission' : 'Approve & Release Funds'}
                                             </button>
                                         )}
                                         {job.status === 'completed' && acceptedProposal && (

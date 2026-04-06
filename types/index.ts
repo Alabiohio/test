@@ -4,7 +4,7 @@ export type Job = {
     description: string;
     budget: number;
     category: string;
-    status: 'open' | 'in-progress' | 'completed';
+    status: 'open' | 'assigned' | 'funded' | 'in_progress' | 'submitted' | 'completed';
     created_at: string;
     client_id: string;
     location?: string;
@@ -24,6 +24,10 @@ export type Profile = {
     skills?: string[];
     tagline?: string;
     social_links?: Record<string, string>;
+    bank_code?: string;
+    bank_name?: string;
+    account_number?: string;
+    recipient_code?: string;
 };
 
 export type Proposal = {
@@ -97,4 +101,32 @@ export type Review = {
     comment?: string;
     created_at: string;
     reviewer?: Profile;
+};
+
+export type Order = {
+    id: string;
+    job_id: string;
+    client_id: string;
+    freelancer_id: string;
+    amount: number;
+    commission: number;
+    freelancer_amount: number;
+    status: 'pending' | 'funded' | 'submitted' | 'released' | 'refunded';
+    paystack_reference?: string;
+    created_at: string;
+    updated_at: string;
+    jobs?: Job;
+    profiles?: Profile; // Usually the freelancer or client
+};
+
+export type Transaction = {
+    id: string;
+    order_id?: string;
+    user_id: string;
+    type: 'payment' | 'payout' | 'refund';
+    amount: number;
+    status: 'pending' | 'success' | 'failed';
+    reference: string;
+    metadata?: any;
+    created_at: string;
 };

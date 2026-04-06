@@ -97,48 +97,41 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
         fetchData();
     }, [id, router]);
 
-    const handleAcceptProposal = async (proposalId: string, freelancerId: string) => {
-        if (!confirm("Are you sure you want to accept this proposal? This will set the job status to 'In Progress'.")) return;
+    const handleAcceptProposal = async (proposalId: string, freelancerId: string, amount: number) => {
+        if (!confirm(`Are you sure you want to hire this student for $${amount}? You will be redirected to fund the escrow.`)) return;
 
         try {
             setActionLoading(proposalId);
 
-            // 1. Update proposal status to 'accepted'
-            const { error: pError } = await supabase
-                .from('proposals')
-                .update({ status: 'accepted' })
-                .eq('id', proposalId);
+            // 1. Initialize Payment
+            const response = await fetch('/api/payments/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jobId: id,
+                    freelancerId: freelancerId,
+                    amount: amount,
+                    email: currentUser.email
+                }),
+            });
 
-            if (pError) throw pError;
+            const data = await response.json();
 
-            // 2. Update job status to 'in-progress'
-            const { error: jError } = await supabase
-                .from('jobs')
-                .update({ status: 'in-progress' })
-                .eq('id', id);
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to initialize payment');
+            }
 
-            if (jError) throw jError;
-
-            // 3. Reject other proposals
-            const { error: rError } = await supabase
-                .from('proposals')
-                .update({ status: 'rejected' })
-                .eq('job_id', id)
-                .neq('id', proposalId);
-
-            if (rError) console.error("Error rejecting other proposals:", rError);
-
-            toast.success("Student hired successfully!");
-
-            // Update local state for immediate feedback
-            setJob(prev => prev ? { ...prev, status: 'in-progress' } : null);
-            setProposals(prev => prev.map(p =>
-                p.id === proposalId ? { ...p, status: 'accepted' } : { ...p, status: 'rejected' }
-            ));
+            // 2. Redirect to Paystack
+            if (data.authorization_url) {
+                toast.success("Redirecting to secure payment...");
+                window.location.href = data.authorization_url;
+            } else {
+                throw new Error("No payment URL received");
+            }
 
         } catch (err: any) {
-            console.error("Error accepting proposal:", err);
-            toast.error("Failed to accept proposal: " + err.message);
+            console.error("Error initiating payment:", err);
+            toast.error(err.message);
         } finally {
             setActionLoading(null);
         }
@@ -382,7 +375,7 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
                                                     )}
 
                                                     {/* Accepted and in-progress: Only show Mark as Complete */}
-                                                    {proposal.status === 'accepted' && job?.status === 'in-progress' && (
+                                                    {proposal.status === 'accepted' && job?.status === 'in_progress' && (
                                                         <button
                                                             onClick={() => handleCompleteJob(proposal)}
                                                             disabled={actionLoading === 'completing'}
@@ -403,7 +396,7 @@ export default function JobProposalsPage({ params }: { params: Promise<{ id: str
                                                     {/* Not accepted, but job is open: Show hire button if pending */}
                                                     {proposal.status === 'pending' && job?.status === 'open' && (
                                                         <button
-                                                            onClick={() => handleAcceptProposal(proposal.id, proposal.freelancer_id)}
+                                                            onClick={() => handleAcceptProposal(proposal.id, proposal.freelancer_id, proposal.bid_amount)}
                                                             disabled={!!actionLoading}
                                                             className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50 shadow-lg shadow-primary/20 active:scale-95 transition-all"
                                                         >
